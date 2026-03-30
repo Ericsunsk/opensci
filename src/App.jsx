@@ -1,6 +1,13 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { principles, projects, reviewSeeds } from "./data";
-import { postureCopy, readText, reasonLabels, uiCopy, verdictLabels } from "./i18n";
+import { projects, reviewSeeds } from "./data";
+import {
+  activityTypeLabels,
+  policyLabels,
+  readText,
+  reasonLabels,
+  uiCopy,
+  verdictLabels,
+} from "./i18n";
 
 const severityOrder = {
   low: 1,
@@ -8,41 +15,9 @@ const severityOrder = {
   high: 3,
 };
 
-const reviewStageOrder = [
-  "submitted",
-  "evidence",
-  "governance",
-  "decision",
-  "monitoring",
-];
+const reviewStageOrder = ["submitted", "evidence", "governance", "decision", "monitoring"];
 
-const requestToneMap = {
-  needsRequest: "danger",
-  requested: "warning",
-  received: "success",
-};
-
-const commitmentBounds = {
-  money: {
-    min: 10000,
-    max: 120000,
-    baseExposure: 20,
-    weight: 1,
-  },
-  time: {
-    min: 1,
-    max: 120,
-    baseExposure: 8,
-    weight: 0.55,
-  },
-  participation: {
-    min: 1,
-    max: 6,
-    baseExposure: 12,
-    weight: 0.75,
-  },
-};
-
+const trancheAllocations = [40, 35, 25];
 const CURRENT_REVIEW_DATE = "2026-03-30";
 
 const bi = (en, zh) => ({ en, zh });
@@ -60,6 +35,23 @@ function createInitialReviewState() {
   return Object.fromEntries(
     projects.map((project) => [project.id, cloneReviewSeed(reviewSeeds[project.id])]),
   );
+}
+
+function createComposerSeed(projectId) {
+  const seed = reviewSeeds[projectId];
+  const requestIndex = seed.evidenceRequests.findIndex((item) => item.status === "needsRequest");
+
+  return {
+    actionType: requestIndex >= 0 ? "requestEvidence" : seed.watchlisted ? "removeFromWatchlist" : "flagRisk",
+    requestIndex: requestIndex >= 0 ? requestIndex : 0,
+    owner: "",
+    due: seed.nextDecision,
+    reason: "",
+  };
+}
+
+function createInitialComposerState() {
+  return Object.fromEntries(projects.map((project) => [project.id, createComposerSeed(project.id)]));
 }
 
 function parseDateString(value) {
@@ -85,85 +77,47 @@ function formatReviewDate(value, lang) {
   }).format(parsed);
 }
 
-function formatSupportValue(mode, value, lang) {
-  if (mode === "money") {
-    return `$${Number(value).toLocaleString(lang === "zh" ? "zh-CN" : "en-US")}`;
+function formatCurrency(value, lang) {
+  if (!value) {
+    return lang === "zh" ? "不释放资金" : "No capital release";
   }
 
-  if (mode === "time") {
-    return lang === "zh" ? `${value} 小时` : `${value} hrs`;
-  }
-
-  return lang === "zh" ? `${value} 个席位` : `${value} seats`;
+  return new Intl.NumberFormat(lang === "zh" ? "zh-CN" : "en-US", {
+    style: "currency",
+    currency: "USD",
+    maximumFractionDigits: 0,
+  }).format(value);
 }
 
-function formatTrancheValue(mode, total, percentage, lang) {
-  if (mode === "money") {
-    return formatSupportValue(
-      mode,
-      Math.max(5000, Math.round((total * percentage) / 100 / 1000) * 1000),
-      lang,
-    );
-  }
-
-  return formatSupportValue(
-    mode,
-    Math.max(1, Math.round((total * percentage) / 100)),
-    lang,
-  );
+function formatPercent(value) {
+  return `${Math.round(value)}%`;
 }
 
 function countOpenRequests(review) {
   return review.evidenceRequests.filter((item) => item.status !== "received").length;
 }
 
-function getCommitmentProfile(mode, value) {
-  const config = commitmentBounds[mode] ?? commitmentBounds.money;
-  const numericValue = Number.isFinite(value) ? value : config.min;
-  const ratio =
-    config.max === config.min ? 0 : (numericValue - config.min) / (config.max - config.min);
-  const normalized = Math.max(0, Math.min(1, ratio));
-
-  return {
-    normalized,
-    pressure: Math.round(config.baseExposure + normalized * 80 * config.weight),
-  };
-}
-
-function computeRecommendation(project, settings, review) {
-  const commitment = getCommitmentProfile(settings.supportMode, settings.supportValue);
-  const anomalyPenalty = project.anomalyRisk * 0.55;
-  const momentumBonus = project.momentum * 0.15;
-  const stagedBonus = settings.staged ? 10 : -5;
-  const verificationBonus =
-    (settings.replication ? 7 : 0) + (settings.escrow ? 8 : 0);
-  const userRiskAdjustment = (settings.riskTolerance - 50) * 0.45;
-  const reviewPenalty = review ? review.riskFlags * 3.5 + (review.watchlisted ? 8 : 0) : 0;
-  const requestPenalty = review ? countOpenRequests(review) * 2 : 0;
-  const trancheBonus = review ? review.approvedTranches * 3 : 0;
-  const commitmentBudget =
-    project.evidenceCoverage * 0.52 +
-    project.trustScore * 0.28 +
-    (settings.replication ? 8 : 0) +
-    (settings.escrow ? 6 : 0) +
-    (settings.supportMode === "time" ? 6 : settings.supportMode === "participation" ? 2 : 0);
-  const commitmentPenalty = Math.max(0, commitment.pressure - commitmentBudget) * 0.35;
-  const exposurePenalty = commitment.pressure * (settings.staged ? 0.07 : 0.18);
-
+function computeRecommendation(project, review) {
+  const openRequests = countOpenRequests(review);
+  const stageBonus =
+    review.currentStage === "decision"
+      ? 4
+      : review.currentStage === "monitoring"
+        ? 3
+        : review.currentStage === "governance"
+          ? 1
+          : 0;
   const rawScore =
-    project.trustScore * 0.4 +
-    project.evidenceCoverage * 0.25 +
-    project.communityConfidence * 0.2 +
-    momentumBonus +
-    stagedBonus +
-    verificationBonus +
-    trancheBonus -
-    anomalyPenalty -
-    reviewPenalty -
-    requestPenalty +
-    userRiskAdjustment -
-    commitmentPenalty -
-    exposurePenalty;
+    project.trustScore * 0.34 +
+    project.evidenceCoverage * 0.31 +
+    project.communityConfidence * 0.12 +
+    project.momentum * 0.08 -
+    project.anomalyRisk * 0.22 -
+    review.riskFlags * 3.4 -
+    openRequests * 2.5 -
+    (review.watchlisted ? 6 : 0) +
+    review.approvedTranches * 2.5 +
+    stageBonus;
 
   const boundedScore = Math.max(0, Math.min(100, Math.round(rawScore)));
 
@@ -176,29 +130,136 @@ function computeRecommendation(project, settings, review) {
   } else if (boundedScore >= 56) {
     verdictKey = "supportConditionally";
     tone = "warning";
-  } else if (boundedScore >= 40) {
+  } else if (boundedScore >= 42) {
     verdictKey = "watchOnly";
     tone = "neutral";
   }
 
+  let policyKey = "declineHold";
+
+  if (verdictKey === "supportNow") {
+    policyKey = "milestoneGrant";
+  } else if (verdictKey === "supportConditionally") {
+    policyKey = "replicationGate";
+  } else if (verdictKey === "watchOnly") {
+    policyKey = "watchlistOnly";
+  }
+
   const reasonKeys = [
-    commitment.pressure <= commitmentBudget * 0.82
-      ? "commitmentRightSized"
-      : "commitmentOversized",
-    project.evidenceCoverage >= 60 ? "evidenceStrong" : "evidenceWeak",
-    settings.staged ? "stagedOn" : "stagedOff",
-    settings.replication ? "replicationOn" : "replicationOff",
-    settings.escrow ? "escrowOn" : "escrowOff",
+    project.evidenceCoverage >= 60 ? "strongEvidence" : "thinEvidence",
+    project.trustScore >= 65 ? "deliveryStrong" : "deliveryThin",
+    openRequests === 0 && review.riskFlags < 3 && !review.watchlisted ? "controlsOpen" : "controlsBlocked",
+    project.anomalyRisk >= 45 ? "riskElevated" : "riskContained",
   ];
 
   return {
     boundedScore,
     verdictKey,
     tone,
+    policyKey,
     reasonKeys,
-    commitmentPressure: commitment.pressure,
-    commitmentBudget: Math.round(commitmentBudget),
   };
+}
+
+function getRecommendedAmount(project, policyKey) {
+  if (policyKey === "milestoneGrant") {
+    return Math.round((project.askValue * 0.67) / 5000) * 5000;
+  }
+
+  if (policyKey === "replicationGate") {
+    return Math.round((project.askValue * 0.45) / 5000) * 5000;
+  }
+
+  return 0;
+}
+
+function getApprovalBlockers(review, recommendation) {
+  const blockers = [];
+  const openRequests = countOpenRequests(review);
+  const stageAllowsDecision = review.currentStage === "decision" || review.currentStage === "monitoring";
+
+  if (!stageAllowsDecision) {
+    blockers.push("stage");
+  }
+
+  if (review.watchlisted) {
+    blockers.push("watchlist");
+  }
+
+  if (openRequests > 0) {
+    blockers.push("evidence");
+  }
+
+  if (review.riskFlags >= 3 || recommendation.verdictKey === "doNotSupport") {
+    blockers.push("risk");
+  }
+
+  if (review.committeeStatus === "queued") {
+    blockers.push("queued");
+  }
+
+  return blockers;
+}
+
+function buildFundingPlan(project, recommendedAmount, lang, ui) {
+  if (!recommendedAmount) {
+    return [
+      {
+        name: ui.decisionPacket.noReleaseTitle,
+        due: project.milestones[0]?.due ?? formatReviewDate(CURRENT_REVIEW_DATE, lang),
+        amount: ui.decisionPacket.noReleaseValue,
+      },
+    ];
+  }
+
+  return project.milestones.map((milestone, index) => {
+    const allocation = trancheAllocations[index] ?? 25;
+    const amount = Math.round((recommendedAmount * allocation) / 100 / 1000) * 1000;
+
+    return {
+      name: readText(milestone.name, lang),
+      due: milestone.due,
+      amount: formatCurrency(Math.max(amount, 5000), lang),
+    };
+  });
+}
+
+function mergeActivity(project, review) {
+  const internal = review.notes.map((note, index) => ({
+    id: `note-${index}-${note.date}`,
+    type: "internal",
+    tone: "neutral",
+    date: note.date,
+    title: note.role,
+    detail: note.content,
+    actor: note.author,
+  }));
+
+  const system = review.auditLog.map((entry, index) => ({
+    id: `audit-${index}-${entry.date}`,
+    type: "system",
+    tone: entry.tone,
+    date: entry.date,
+    title: entry.title,
+    detail: entry.detail,
+    actor: null,
+  }));
+
+  const external = project.updates.map((entry, index) => ({
+    id: `update-${index}-${entry.date}`,
+    type: "external",
+    tone: "neutral",
+    date: entry.date,
+    title: entry.title,
+    detail: entry.detail,
+    actor: null,
+  }));
+
+  return [...internal, ...system, ...external].sort((left, right) => {
+    const leftDate = parseDateString(left.date)?.getTime() ?? 0;
+    const rightDate = parseDateString(right.date)?.getTime() ?? 0;
+    return rightDate - leftDate;
+  });
 }
 
 function SectionTitle({ eyebrow, title, description }) {
@@ -211,48 +272,20 @@ function SectionTitle({ eyebrow, title, description }) {
   );
 }
 
-function SignalTile({ label, value, note, tone }) {
-  return (
-    <article className={`signal-tile signal-tile--${tone}`}>
-      <div className="signal-tile__topline">
-        <span>{label}</span>
-        <strong>{value}</strong>
-      </div>
-      <p>{note}</p>
-    </article>
-  );
-}
-
-function DecisionMeter({ score, tone, label, caption, compact = false }) {
-  return (
-    <div className={`decision-meter decision-meter--${tone} ${compact ? "is-compact" : ""}`}>
-      <div className="decision-meter__ring" style={{ "--meter-value": `${score}%` }}>
-        <div className="decision-meter__core">
-          <strong>{score}</strong>
-          <span>/100</span>
-        </div>
-      </div>
-      <div className="decision-meter__copy">
-        <span>{label}</span>
-        <p>{caption}</p>
-      </div>
-    </div>
-  );
-}
-
 function App() {
   const [lang, setLang] = useState("zh");
   const [selectedId, setSelectedId] = useState(projects[0].id);
-  const [supportMode, setSupportMode] = useState("money");
-  const [supportValue, setSupportValue] = useState(40000);
-  const [riskTolerance, setRiskTolerance] = useState(42);
-  const [staged, setStaged] = useState(true);
-  const [replication, setReplication] = useState(true);
-  const [escrow, setEscrow] = useState(true);
   const [reviewState, setReviewState] = useState(createInitialReviewState);
-  const [noteDrafts, setNoteDrafts] = useState(() =>
+  const [composerState, setComposerState] = useState(createInitialComposerState);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [stageFilter, setStageFilter] = useState("all");
+  const [ownerFilter, setOwnerFilter] = useState("all");
+  const [sortKey, setSortKey] = useState("nextDecision");
+  const [activityFilter, setActivityFilter] = useState("all");
+  const [noteDrafts, setNoteDrafts] = useState(
     Object.fromEntries(projects.map((project) => [project.id, ""])),
   );
+  const [copiedPacketId, setCopiedPacketId] = useState("");
 
   const ui = uiCopy[lang];
   const t = (value) => readText(value, lang);
@@ -269,72 +302,129 @@ function App() {
     description.setAttribute("content", ui.metaDescription);
   }, [lang, ui.consoleLabel, ui.metaDescription]);
 
+  const owners = useMemo(() => {
+    const uniqueOwners = Array.from(
+      new Set(projects.map((project) => t(reviewState[project.id].owner))),
+    );
+
+    return uniqueOwners.sort((left, right) => left.localeCompare(right));
+  }, [lang, reviewState]);
+
+  const filteredProjects = useMemo(() => {
+    const lowerQuery = searchQuery.trim().toLowerCase();
+
+    const matches = projects.filter((project) => {
+      const review = reviewState[project.id];
+      const matchesQuery =
+        lowerQuery.length === 0 ||
+        t(project.name).toLowerCase().includes(lowerQuery) ||
+        t(project.domain).toLowerCase().includes(lowerQuery);
+      const matchesStage = stageFilter === "all" || review.currentStage === stageFilter;
+      const matchesOwner = ownerFilter === "all" || t(review.owner) === ownerFilter;
+
+      return matchesQuery && matchesStage && matchesOwner;
+    });
+
+    return matches.sort((left, right) => {
+      const leftReview = reviewState[left.id];
+      const rightReview = reviewState[right.id];
+
+      if (sortKey === "highestRisk") {
+        return right.anomalyRisk - left.anomalyRisk;
+      }
+
+      if (sortKey === "highestEvidenceGap") {
+        return left.evidenceCoverage - right.evidenceCoverage;
+      }
+
+      const leftDate = parseDateString(leftReview.nextDecision)?.getTime() ?? Number.MAX_SAFE_INTEGER;
+      const rightDate =
+        parseDateString(rightReview.nextDecision)?.getTime() ?? Number.MAX_SAFE_INTEGER;
+      return leftDate - rightDate;
+    });
+  }, [ownerFilter, reviewState, searchQuery, sortKey, stageFilter, lang]);
+
+  useEffect(() => {
+    if (filteredProjects.length === 0) {
+      return;
+    }
+
+    const stillVisible = filteredProjects.some((project) => project.id === selectedId);
+
+    if (!stillVisible) {
+      setSelectedId(filteredProjects[0].id);
+    }
+  }, [filteredProjects, selectedId]);
+
   const selectedProject = useMemo(
     () => projects.find((project) => project.id === selectedId) ?? projects[0],
     [selectedId],
   );
   const selectedReview = reviewState[selectedId];
+  const selectedComposer = composerState[selectedId];
 
   const recommendation = useMemo(
+    () => computeRecommendation(selectedProject, selectedReview),
+    [selectedProject, selectedReview],
+  );
+  const requestableOptions = useMemo(
     () =>
-      computeRecommendation(
-        selectedProject,
-        {
-          supportMode,
-          supportValue,
-          riskTolerance,
-          staged,
-          replication,
-          escrow,
-        },
-        selectedReview,
-      ),
-    [selectedProject, riskTolerance, staged, replication, escrow, selectedReview],
+      selectedReview.evidenceRequests
+        .map((request, index) => ({ request, index }))
+        .filter(({ request }) => request.status === "needsRequest"),
+    [selectedReview],
   );
 
-  const anomalyCount = selectedProject.anomalies.reduce(
-    (sum, anomaly) => sum + severityOrder[anomaly.severity],
-    0,
-  );
-  const milestoneAverage = Math.round(
-    selectedProject.milestones.reduce((sum, milestone) => sum + milestone.confidence, 0) /
-      selectedProject.milestones.length,
-  );
-  const primaryAnomaly = selectedProject.anomalies[0];
-  const posture = postureCopy[lang][recommendation.tone];
-  const tranchePlan = selectedProject.milestones.map((milestone, index) => ({
-    ...milestone,
-    allocation: [40, 35, 25][index] ?? 25,
-  }));
   const openRequests = countOpenRequests(selectedReview);
-  const requestableCount = selectedReview.evidenceRequests.filter(
-    (item) => item.status === "needsRequest",
-  ).length;
-  const approvalBlockers = [];
-  const stageAllowsApproval =
-    selectedReview.currentStage === "decision" || selectedReview.currentStage === "monitoring";
-  const canApproveTranche =
+  const primaryAnomaly = selectedProject.anomalies[0];
+  const activityItems = useMemo(
+    () => mergeActivity(selectedProject, selectedReview),
+    [selectedProject, selectedReview],
+  );
+  const filteredActivity = useMemo(
+    () =>
+      activityItems.filter((item) => activityFilter === "all" || item.type === activityFilter),
+    [activityFilter, activityItems],
+  );
+  const recommendedAmount = getRecommendedAmount(selectedProject, recommendation.policyKey);
+  const approvalBlockers = getApprovalBlockers(selectedReview, recommendation);
+  const canQueueCommittee = approvalBlockers.length === 0;
+  const canApproveNextTranche =
     selectedReview.approvedTranches < selectedProject.milestones.length &&
-    stageAllowsApproval &&
+    selectedReview.currentStage === "decision" &&
     !selectedReview.watchlisted &&
     openRequests === 0 &&
-    selectedReview.riskFlags < 4;
+    selectedReview.riskFlags < 3;
+  const fundingPlan = buildFundingPlan(selectedProject, recommendedAmount, lang, ui);
 
-  if (!stageAllowsApproval) {
-    approvalBlockers.push("stage");
-  }
+  const packetMemo = useMemo(() => {
+    const lines = [
+      `${ui.consoleLabel} · ${t(selectedProject.name)}`,
+      `${ui.decisionPacket.template}: ${policyLabels[lang][recommendation.policyKey]}`,
+      `${ui.decisionPacket.recommendedAmount}: ${formatCurrency(recommendedAmount, lang)}`,
+      `${ui.decisionPacket.nextGate}: ${formatReviewDate(selectedReview.nextDecision, lang)}`,
+      `${ui.caseSummary.owner}: ${t(selectedReview.owner)}`,
+      `${ui.quickMetrics.verdict}: ${verdictLabels[lang][recommendation.verdictKey]}`,
+      `${ui.decisionPacket.blockers}: ${
+        approvalBlockers.length > 0
+          ? approvalBlockers.map((blocker) => ui.blockers[blocker]).join(" / ")
+          : ui.decisionPacket.noBlockers
+      }`,
+    ];
 
-  if (selectedReview.watchlisted) {
-    approvalBlockers.push("watchlist");
-  }
-
-  if (openRequests > 0) {
-    approvalBlockers.push("evidence");
-  }
-
-  if (selectedReview.riskFlags >= 4) {
-    approvalBlockers.push("risk");
-  }
+    return lines.join("\n");
+  }, [
+    approvalBlockers,
+    lang,
+    recommendation.policyKey,
+    recommendation.verdictKey,
+    recommendedAmount,
+    selectedProject,
+    selectedReview.nextDecision,
+    selectedReview.owner,
+    ui,
+    t,
+  ]);
 
   const updateProjectReview = (projectId, updater) => {
     setReviewState((current) => {
@@ -349,42 +439,19 @@ function App() {
     });
   };
 
-  const prependAudit = (review, entry) => ({
-    ...review,
-    auditLog: [entry, ...review.auditLog].slice(0, 8),
-  });
-
-  const queueEvidenceRequest = (requestIndex) => {
-    updateProjectReview(selectedId, (review) => {
-      const target = review.evidenceRequests[requestIndex];
-
-      if (!target || target.status !== "needsRequest") {
-        return review;
-      }
-
-      const evidenceRequests = review.evidenceRequests.map((item, index) =>
-        index === requestIndex ? { ...item, status: "requested" } : item,
-      );
-
-      return prependAudit(
-        {
-          ...review,
-          currentStage: "evidence",
-          nextDecision: target.due,
-          evidenceRequests,
-        },
-        {
-          date: CURRENT_REVIEW_DATE,
-          tone: "warning",
-          title: bi("Evidence request sent", "已发起补证请求"),
-          detail: bi(
-            `Requested ${target.label.en} from ${target.owner.en} before the next committee gate.`,
-            `已要求 ${target.owner.zh} 在下次委员会节点前补充「${target.label.zh}」。`,
-          ),
-        },
-      );
+  const updateComposer = (projectId, updater) => {
+    setComposerState((current) => {
+      const existing = current[projectId] ?? createComposerSeed(projectId);
+      const next = typeof updater === "function" ? updater(existing) : { ...existing, ...updater };
+      return { ...current, [projectId]: next };
     });
   };
+
+  const prependAudit = (review, entry) => ({
+    ...review,
+    lastTouched: CURRENT_REVIEW_DATE,
+    auditLog: [entry, ...review.auditLog].slice(0, 10),
+  });
 
   const markEvidenceReceived = (requestIndex) => {
     updateProjectReview(selectedId, (review) => {
@@ -397,129 +464,131 @@ function App() {
       const evidenceRequests = review.evidenceRequests.map((item, index) =>
         index === requestIndex ? { ...item, status: "received" } : item,
       );
+
       const allEvidenceResolved = evidenceRequests.every((item) => item.status === "received");
-      const nextStage = allEvidenceResolved
-        ? review.watchlisted
-          ? "governance"
-          : "decision"
-        : review.currentStage;
-      const nextDecision = allEvidenceResolved
-        ? selectedProject.milestones[review.approvedTranches]?.due ?? review.nextDecision
-        : review.nextDecision;
+      const nextStage = allEvidenceResolved && !review.watchlisted ? "decision" : review.currentStage;
 
       return prependAudit(
         {
           ...review,
           currentStage: nextStage,
-          nextDecision,
           evidenceRequests,
+          committeeStatus: allEvidenceResolved ? "draft" : review.committeeStatus,
         },
         {
           date: CURRENT_REVIEW_DATE,
           tone: "success",
           title: bi("Evidence received", "补证材料已收到"),
           detail: bi(
-            allEvidenceResolved
-              ? `Received ${target.label.en}; the project can move back into tranche design.`
-              : `Received ${target.label.en}; remaining blockers stay in review.`,
-            allEvidenceResolved
-              ? `已收到「${target.label.zh}」，项目可以重新回到 tranche 设计。`
-              : `已收到「${target.label.zh}」，其余阻塞项仍在继续审查。`,
+            `Marked ${target.label.en} as received and kept the case moving.`,
+            `已将「${target.label.zh}」标记为收到，并继续推进案件。`,
           ),
         },
       );
     });
   };
 
-  const handleRequestEvidence = () => {
-    const firstRequestable = selectedReview.evidenceRequests.findIndex(
-      (item) => item.status === "needsRequest",
-    );
+  const handleSubmitAction = () => {
+    const draft = selectedComposer;
+    const reason = draft.reason.trim();
 
-    if (firstRequestable >= 0) {
-      queueEvidenceRequest(firstRequestable);
+    if (!reason) {
+      return;
     }
-  };
 
-  const handleFlagRisk = () => {
-    updateProjectReview(selectedId, (review) =>
-      prependAudit(
-        {
-          ...review,
-          currentStage: "governance",
-          riskFlags: review.riskFlags + 1,
-        },
-        {
-          date: CURRENT_REVIEW_DATE,
-          tone: "danger",
-          title: bi("Risk flag added", "新增风险标记"),
-          detail: bi(
-            `Primary concern escalated around ${primaryAnomaly.title.en} and routed back to governance review.`,
-            `围绕「${primaryAnomaly.title.zh}」的核心疑点被升级，并重新送回治理复核。`,
-          ),
-        },
-      ),
-    );
-  };
-
-  const handleApproveTranche = () => {
     updateProjectReview(selectedId, (review) => {
-      const hasOpenRequests = countOpenRequests(review) > 0;
-      const stageAllowsRelease =
-        review.currentStage === "decision" || review.currentStage === "monitoring";
+      const ownerValue = draft.owner.trim() || t(review.owner);
+      const dueValue = draft.due || review.nextDecision;
 
-      if (
-        review.approvedTranches >= selectedProject.milestones.length ||
-        !stageAllowsRelease ||
-        review.watchlisted ||
-        hasOpenRequests ||
-        review.riskFlags >= 4
-      ) {
-        return review;
+      if (draft.actionType === "requestEvidence") {
+        const target = review.evidenceRequests[draft.requestIndex];
+
+        if (!target || target.status !== "needsRequest") {
+          return review;
+        }
+
+        const evidenceRequests = review.evidenceRequests.map((item, index) =>
+          index === draft.requestIndex ? { ...item, status: "requested", owner: ownerValue, due: dueValue } : item,
+        );
+
+        return prependAudit(
+          {
+            ...review,
+            currentStage: "evidence",
+            nextDecision: dueValue,
+            committeeStatus: "draft",
+            evidenceRequests,
+          },
+          {
+            date: CURRENT_REVIEW_DATE,
+            tone: "warning",
+            title: bi("Evidence request issued", "已发起补证请求"),
+            detail: bi(
+              `Requested ${target.label.en}. Rationale: ${reason}`,
+              `已发起「${target.label.zh}」补证。依据：${reason}`,
+            ),
+          },
+        );
       }
 
-      const nextApproved = review.approvedTranches + 1;
-      const trancheMilestone = selectedProject.milestones[nextApproved - 1];
-      const nextDecision = selectedProject.milestones[nextApproved]?.due ?? review.nextDecision;
+      if (draft.actionType === "flagRisk") {
+        return prependAudit(
+          {
+            ...review,
+            currentStage: "governance",
+            nextDecision: dueValue,
+            committeeStatus: "blocked",
+            riskFlags: review.riskFlags + 1,
+          },
+          {
+            date: CURRENT_REVIEW_DATE,
+            tone: "danger",
+            title: bi("Risk escalated", "风险已升级"),
+            detail: bi(
+              `Escalated governance review. Rationale: ${reason}`,
+              `已升级治理复核。依据：${reason}`,
+            ),
+          },
+        );
+      }
+
+      if (draft.actionType === "approveTranche") {
+        if (!canApproveNextTranche) {
+          return review;
+        }
+
+        const nextApproved = review.approvedTranches + 1;
+        const milestone = selectedProject.milestones[nextApproved - 1];
+
+        return prependAudit(
+          {
+            ...review,
+            approvedTranches: nextApproved,
+            currentStage: "monitoring",
+            nextDecision: dueValue,
+            committeeStatus: "draft",
+          },
+          {
+            date: CURRENT_REVIEW_DATE,
+            tone: "success",
+            title: bi("Next tranche approved", "已批准下一笔 tranche"),
+            detail: bi(
+              `Approved tranche ${nextApproved} against ${milestone.name.en}. Rationale: ${reason}`,
+              `已依据「${milestone.name.zh}」批准第 ${nextApproved} 笔 tranche。依据：${reason}`,
+            ),
+          },
+        );
+      }
+
+      const nextWatchlist = draft.actionType === "moveToWatchlist";
 
       return prependAudit(
         {
           ...review,
-          approvedTranches: nextApproved,
-          currentStage: "monitoring",
-          nextDecision,
-          watchlisted: false,
-        },
-        {
-          date: CURRENT_REVIEW_DATE,
-          tone: "success",
-          title: bi("Tranche approved", "已批准 tranche"),
-          detail: bi(
-            `Released tranche ${nextApproved} against ${trancheMilestone.name.en}.`,
-            `已依据「${trancheMilestone.name.zh}」批准第 ${nextApproved} 笔 tranche 释放。`,
-          ),
-        },
-      );
-    });
-  };
-
-  const handleToggleWatchlist = () => {
-    updateProjectReview(selectedId, (review) => {
-      const nextWatchlist = !review.watchlisted;
-      const allEvidenceResolved = review.evidenceRequests.every(
-        (item) => item.status === "received",
-      );
-      const nextStage = nextWatchlist
-        ? "governance"
-        : allEvidenceResolved
-          ? "decision"
-          : review.currentStage;
-
-      return prependAudit(
-        {
-          ...review,
-          currentStage: nextStage,
           watchlisted: nextWatchlist,
+          currentStage: nextWatchlist ? "governance" : "decision",
+          nextDecision: dueValue,
+          committeeStatus: nextWatchlist ? "blocked" : "draft",
         },
         {
           date: CURRENT_REVIEW_DATE,
@@ -528,17 +597,13 @@ function App() {
             ? bi("Moved to watchlist", "移入观察名单")
             : bi("Removed from watchlist", "移出观察名单"),
           detail: nextWatchlist
-            ? bi(
-                "The project remains visible, but no new commitment should happen until the current blockers are cleared.",
-                "项目会继续被观察，但在当前阻塞项解除前不应新增投入。",
-              )
-            : bi(
-                "The project can move back into active handling after the latest checks.",
-                "在最新检查通过后，项目可以重新回到主动处理流程。",
-              ),
+            ? bi(`Paused active packaging. Rationale: ${reason}`, `已暂停主动打包。依据：${reason}`)
+            : bi(`Returned the case to active handling. Rationale: ${reason}`, `案件已回到主动处理。依据：${reason}`),
         },
       );
     });
+
+    updateComposer(selectedId, (current) => ({ ...current, reason: "" }));
   };
 
   const handleSaveNote = () => {
@@ -548,841 +613,711 @@ function App() {
       return;
     }
 
-    updateProjectReview(selectedId, (review) =>
-      prependAudit(
+    updateProjectReview(selectedId, (review) => ({
+      ...review,
+      lastTouched: CURRENT_REVIEW_DATE,
+      notes: [
         {
-          ...review,
-          notes: [
-            {
-              author: bi("Current reviewer", "当前评审员"),
-              role: bi("Reviewer note", "评审备注"),
-              date: CURRENT_REVIEW_DATE,
-              content: draft,
-            },
-            ...review.notes,
-          ].slice(0, 6),
-        },
-        {
+          author: bi("Current reviewer", "当前评审员"),
+          role: bi("Reviewer note", "评审备注"),
           date: CURRENT_REVIEW_DATE,
-          tone: "neutral",
-          title: bi("Reviewer note added", "已添加评审备注"),
-          detail: bi(
-            "The current rationale was saved to the workspace log for the next decision gate.",
-            "当前判断依据已经写入工作台记录，用于下一次决策节点复核。",
-          ),
+          content: draft,
         },
-      ),
-    );
+        ...review.notes,
+      ].slice(0, 10),
+    }));
 
     setNoteDrafts((current) => ({ ...current, [selectedId]: "" }));
   };
 
+  const handleQueueCommittee = () => {
+    if (!canQueueCommittee) {
+      return;
+    }
+
+    updateProjectReview(selectedId, (review) =>
+      prependAudit(
+        {
+          ...review,
+          committeeStatus: "queued",
+        },
+        {
+          date: CURRENT_REVIEW_DATE,
+          tone: "success",
+          title: bi("Packet queued for committee", "决策包已加入委员会队列"),
+          detail: bi(
+            "The current package is ready for the next committee review window.",
+            "当前决策包已进入下一次委员会评审窗口。",
+          ),
+        },
+      ),
+    );
+  };
+
+  const handleCopyPacket = async () => {
+    try {
+      await navigator.clipboard.writeText(packetMemo);
+      setCopiedPacketId(selectedId);
+      window.setTimeout(() => setCopiedPacketId(""), 1600);
+    } catch {
+      setCopiedPacketId("");
+    }
+  };
+
+  const recommendationReasons = recommendation.reasonKeys.map((reasonKey) => reasonLabels[lang][reasonKey]);
+
   return (
     <div className={`app-shell app-shell--${lang}`}>
-      <div className="ambient ambient--top" />
-      <div className="ambient ambient--middle" />
-      <div className="ambient ambient--bottom" />
-
-      <header className="hero">
-        <div className="hero__copy">
-          <div className="hero__topbar">
-            <p className="eyebrow">{ui.consoleLabel}</p>
-            <div className="lang-switch" aria-label="language switch">
-              <button
-                type="button"
-                className={lang === "zh" ? "is-active" : ""}
-                aria-pressed={lang === "zh"}
-                aria-label={ui.languageSwitchLabel}
-                onClick={() => setLang("zh")}
-              >
-                {ui.language.zh}
-              </button>
-              <button
-                type="button"
-                className={lang === "en" ? "is-active" : ""}
-                aria-pressed={lang === "en"}
-                aria-label={ui.languageSwitchLabel}
-                onClick={() => setLang("en")}
-              >
-                {ui.language.en}
-              </button>
-            </div>
-          </div>
-
-          <div className="hero__kicker">
-            {ui.heroKickers.map((item) => (
-              <span key={item}>{item}</span>
-            ))}
-          </div>
-          <h1>{ui.heroTitle}</h1>
-          <p className="hero__lede">{ui.heroLede}</p>
-
-          <div className="hero__chips">
-            {ui.heroChips.map((item) => (
-              <span key={item}>{item}</span>
-            ))}
-          </div>
+      <header className="topbar">
+        <div className="topbar__copy">
+          <p className="eyebrow">{ui.consoleLabel}</p>
+          <h1>{ui.topbarTitle}</h1>
+          <p>{ui.topbarLede}</p>
         </div>
 
-        <div className="hero__aside">
-          <article className="hero-card hero-card--focus">
-            <span className="hero-card__eyebrow">{ui.currentFocus}</span>
-            <div className="hero-card__header">
-              <div>
-                <strong>{t(selectedProject.name)}</strong>
-                <p>{t(selectedProject.domain)}</p>
-              </div>
-              <div className={`hero-card__stamp hero-card__stamp--${recommendation.tone}`}>
-                {posture.label}
-              </div>
-            </div>
-
-            <p className="hero-card__body">{posture.copy}</p>
-
-            <div className="hero-card__stats">
-              <div>
-                <span>{ui.currentAsk}</span>
-                <strong>{t(selectedProject.ask)}</strong>
-              </div>
-              <div>
-                <span>{ui.workflowStages[selectedReview.currentStage].label}</span>
-                <strong>{formatReviewDate(selectedReview.nextDecision, lang)}</strong>
-              </div>
-              <div>
-                <span>{ui.primaryAlert}</span>
-                <strong>{t(primaryAnomaly.title)}</strong>
-              </div>
-            </div>
-          </article>
-
-          <article className="hero-card hero-card--protocol">
-            <span className="hero-card__eyebrow">{ui.reviewProtocol}</span>
-            {ui.protocol.map((step, index) => (
-              <div key={step.title} className="protocol-row">
-                <strong>{`0${index + 1}`}</strong>
-                <div>
-                  <h3>{step.title}</h3>
-                  <p>{step.description}</p>
-                </div>
-              </div>
-            ))}
-          </article>
+        <div className="topbar__meta">
+          <div className="workspace-pill-list">
+            <span>{ui.workspaceStatus.queue}</span>
+            <span>{ui.workspaceStatus.summary}</span>
+            <span>{ui.workspaceStatus.review}</span>
+            <span>{ui.workspaceStatus.packet}</span>
+          </div>
+          <div className="lang-switch" aria-label="language switch">
+            <button
+              type="button"
+              className={lang === "zh" ? "is-active" : ""}
+              aria-pressed={lang === "zh"}
+              aria-label={ui.languageSwitchLabel}
+              onClick={() => setLang("zh")}
+            >
+              {ui.language.zh}
+            </button>
+            <button
+              type="button"
+              className={lang === "en" ? "is-active" : ""}
+              aria-pressed={lang === "en"}
+              aria-label={ui.languageSwitchLabel}
+              onClick={() => setLang("en")}
+            >
+              {ui.language.en}
+            </button>
+          </div>
         </div>
       </header>
 
-      <section className="overview-band">
-        <article className="overview-card overview-card--primary">
-          <span>{ui.overview.decisionPosture}</span>
-          <strong>{verdictLabels[lang][recommendation.verdictKey]}</strong>
-          <p>{posture.copy}</p>
-        </article>
-        <article className="overview-card">
-          <span>{ui.overview.currentPhase}</span>
-          <strong>{ui.workflowStages[selectedReview.currentStage].label}</strong>
-          <p>{`${t(selectedProject.phase)} · ${t(selectedReview.owner)}`}</p>
-        </article>
-        <article className="overview-card">
-          <span>{ui.overview.largestFailureSurface}</span>
-          <strong>{t(primaryAnomaly.title)}</strong>
-          <p>{t(primaryAnomaly.detail)}</p>
-        </article>
-        <article className="overview-card">
-          <span>{ui.overview.recommendedCommitment}</span>
-          <strong>{formatSupportValue(supportMode, supportValue, lang)}</strong>
-          <p>{staged ? ui.overview.recommendedStaged : ui.overview.recommendedDirect}</p>
-        </article>
-      </section>
-
-      <section className="principles">
-        {principles.map((principle) => (
-          <article key={t(principle.label)} className="principle-card">
-            <span>{t(principle.label)}</span>
-            <p>{t(principle.detail)}</p>
-          </article>
-        ))}
-      </section>
-
-      <main className="workspace">
-        <aside className="project-rail card">
+      <main className="workspace-shell">
+        <aside className="panel panel--inbox">
           <SectionTitle
-            eyebrow={ui.queue.eyebrow}
-            title={ui.queue.title}
-            description={ui.queue.description}
+            eyebrow={ui.inbox.eyebrow}
+            title={ui.inbox.title}
+            description={ui.inbox.description}
           />
 
+          <div className="filter-grid">
+            <label className="field">
+              <span>{ui.inbox.search}</span>
+              <input
+                type="search"
+                value={searchQuery}
+                onChange={(event) => setSearchQuery(event.target.value)}
+                placeholder={ui.inbox.search}
+              />
+            </label>
+            <label className="field">
+              <span>{ui.inbox.stageFilter}</span>
+              <select value={stageFilter} onChange={(event) => setStageFilter(event.target.value)}>
+                <option value="all">{ui.inbox.allStages}</option>
+                {reviewStageOrder.map((stage) => (
+                  <option key={stage} value={stage}>
+                    {ui.workflowStages[stage].label}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="field">
+              <span>{ui.inbox.ownerFilter}</span>
+              <select value={ownerFilter} onChange={(event) => setOwnerFilter(event.target.value)}>
+                <option value="all">{ui.inbox.allOwners}</option>
+                {owners.map((owner) => (
+                  <option key={owner} value={owner}>
+                    {owner}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="field">
+              <span>{ui.inbox.sort}</span>
+              <select value={sortKey} onChange={(event) => setSortKey(event.target.value)}>
+                <option value="nextDecision">{ui.inbox.sortOptions.nextDecision}</option>
+                <option value="highestRisk">{ui.inbox.sortOptions.highestRisk}</option>
+                <option value="highestEvidenceGap">{ui.inbox.sortOptions.highestEvidenceGap}</option>
+              </select>
+            </label>
+          </div>
+
           <div className="project-list">
-            {projects.map((project) => {
-              const projectReview = reviewState[project.id];
-              const localRecommendation = computeRecommendation(
-                project,
-                {
-                  supportMode,
-                  supportValue,
-                  riskTolerance,
-                  staged,
-                  replication,
-                  escrow,
-                },
-                projectReview,
-              );
+            {filteredProjects.length > 0 ? (
+              filteredProjects.map((project) => {
+                const review = reviewState[project.id];
+                const localRecommendation = computeRecommendation(project, review);
 
-              return (
-                <button
-                  key={project.id}
-                  type="button"
-                  className={`project-card ${project.id === selectedProject.id ? "is-active" : ""}`}
-                  onClick={() => setSelectedId(project.id)}
-                >
-                  <div className="project-card__topline">
-                    <span>{t(project.domain)}</span>
-                    <strong
-                      className={`project-card__verdict project-card__verdict--${localRecommendation.tone}`}
-                    >
-                      {verdictLabels[lang][localRecommendation.verdictKey]}
-                    </strong>
-                  </div>
-
-                  <h3>{t(project.name)}</h3>
-                  <p>{t(project.summary)}</p>
-
-                  <div className="project-card__status-row">
-                    <span>{ui.workflowStages[projectReview.currentStage].label}</span>
-                    <strong>{`${countOpenRequests(projectReview)} · ${ui.reviewMeta.openRequests}`}</strong>
-                  </div>
-
-                  <div className="project-card__track">
-                    <span style={{ width: `${localRecommendation.boundedScore}%` }} />
-                  </div>
-
-                  <div className="project-card__metrics">
-                    <div>
-                      <span>{ui.queue.trust}</span>
-                      <strong>{project.trustScore}</strong>
+                return (
+                  <button
+                    key={project.id}
+                    type="button"
+                    className={`project-card ${selectedId === project.id ? "is-active" : ""}`}
+                    onClick={() => setSelectedId(project.id)}
+                  >
+                    <div className="project-card__topline">
+                      <span>{ui.inbox.priority[review.priority]}</span>
+                      <strong className={`status-chip status-chip--${localRecommendation.tone}`}>
+                        {verdictLabels[lang][localRecommendation.verdictKey]}
+                      </strong>
                     </div>
-                    <div>
-                      <span>{ui.queue.evidence}</span>
-                      <strong>{project.evidenceCoverage}</strong>
+                    <h3>{t(project.name)}</h3>
+                    <p>{t(project.summary)}</p>
+                    <div className="project-card__meta">
+                      <span>{t(project.domain)}</span>
+                      <span>{ui.workflowStages[review.currentStage].label}</span>
                     </div>
-                    <div>
-                      <span>{ui.queue.risk}</span>
-                      <strong>{project.anomalyRisk}</strong>
+                    <div className="project-card__stats">
+                      <div>
+                        <span>{ui.inbox.owner}</span>
+                        <strong>{t(review.owner)}</strong>
+                      </div>
+                      <div>
+                        <span>{ui.inbox.nextDecision}</span>
+                        <strong>{formatReviewDate(review.nextDecision, lang)}</strong>
+                      </div>
+                      <div>
+                        <span>{ui.inbox.openRequests}</span>
+                        <strong>{countOpenRequests(review)}</strong>
+                      </div>
                     </div>
-                  </div>
-                </button>
-              );
-            })}
+                    <div className="project-card__metrics">
+                      <div>
+                        <span>{ui.inbox.trust}</span>
+                        <strong>{project.trustScore}</strong>
+                      </div>
+                      <div>
+                        <span>{ui.inbox.evidence}</span>
+                        <strong>{project.evidenceCoverage}</strong>
+                      </div>
+                      <div>
+                        <span>{ui.inbox.risk}</span>
+                        <strong>{project.anomalyRisk}</strong>
+                      </div>
+                    </div>
+                    <div className="project-card__footer">
+                      <span>{ui.inbox.lastTouched}</span>
+                      <strong>{formatReviewDate(review.lastTouched, lang)}</strong>
+                    </div>
+                  </button>
+                );
+              })
+            ) : (
+              <div className="empty-state">{ui.inbox.empty}</div>
+            )}
           </div>
         </aside>
 
-        <section className="project-detail">
-          <article className="detail-head card">
-            <div className="detail-head__copy">
-              <p className="eyebrow">{ui.queue.selectedProject}</p>
-              <h2>{t(selectedProject.name)}</h2>
-              <p className="detail-head__lede">{t(selectedProject.summary)}</p>
+        <section className="main-column">
+          <article className="panel">
+            <SectionTitle
+              eyebrow={ui.caseSummary.eyebrow}
+              title={ui.caseSummary.title}
+              description={ui.caseSummary.description}
+            />
 
-              <div className="detail-head__chips">
-                <span>{t(selectedProject.domain)}</span>
-                <span>{t(selectedProject.phase)}</span>
-                <span>{ui.workflowStages[selectedReview.currentStage].label}</span>
-                <span>{t(selectedReview.owner)}</span>
-              </div>
-
-              <div className="detail-head__grid">
-                <div>
-                  <span>{ui.detail.thesisPrompt}</span>
-                  <strong>{t(selectedProject.thesis)}</strong>
-                </div>
-                <div>
-                  <span>{ui.detail.supportShape}</span>
-                  <strong>{t(selectedProject.stageRelease)}</strong>
-                </div>
-                <div>
-                  <span>{ui.reviewMeta.nextDecision}</span>
-                  <strong>{formatReviewDate(selectedReview.nextDecision, lang)}</strong>
-                </div>
-                <div>
-                  <span>{ui.reviewMeta.trancheStatus}</span>
-                  <strong>{`${selectedReview.approvedTranches}/${selectedProject.milestones.length}`}</strong>
-                </div>
-              </div>
-            </div>
-
-            <div className="detail-head__sidebar">
-              <DecisionMeter
-                score={recommendation.boundedScore}
-                tone={recommendation.tone}
-                label={posture.label}
-                caption={reasonLabels[lang][recommendation.reasonKeys[0]]}
-              />
-
-              <div className="detail-head__insight">
-                <span>{ui.detail.decisionReadout}</span>
-                <p>{reasonLabels[lang][recommendation.reasonKeys[1]]}</p>
-                <div className="detail-head__mini-grid">
+            <div className="case-header">
+              <div className="case-header__copy">
+                <div className="case-header__heading">
                   <div>
-                    <span>{ui.detail.milestoneAverage}</span>
-                    <strong>{milestoneAverage}%</strong>
+                    <h2>{t(selectedProject.name)}</h2>
+                    <p>{t(selectedProject.summary)}</p>
                   </div>
-                  <div>
-                    <span>{ui.detail.anomalyLoad}</span>
-                    <strong>{anomalyCount}</strong>
+                  <strong className={`status-chip status-chip--${recommendation.tone}`}>
+                    {verdictLabels[lang][recommendation.verdictKey]}
+                  </strong>
+                </div>
+
+                <div className="chip-row">
+                  <span>{t(selectedProject.domain)}</span>
+                  <span>{t(selectedProject.phase)}</span>
+                  <span>{ui.workflowStages[selectedReview.currentStage].label}</span>
+                  <span>{t(selectedReview.owner)}</span>
+                </div>
+
+                <div className="summary-grid">
+                  <div className="summary-card">
+                    <span>{ui.caseSummary.thesis}</span>
+                    <strong>{t(selectedProject.thesis)}</strong>
+                  </div>
+                  <div className="summary-card">
+                    <span>{ui.caseSummary.intakeReason}</span>
+                    <strong>{t(selectedProject.submission.intakeReason)}</strong>
+                  </div>
+                  <div className="summary-card">
+                    <span>{ui.caseSummary.requestedSupport}</span>
+                    <strong>{t(selectedProject.submission.requestedSupport)}</strong>
+                  </div>
+                  <div className="summary-card">
+                    <span>{ui.caseSummary.requestedUse}</span>
+                    <strong>{t(selectedProject.submission.requestedUse)}</strong>
+                  </div>
+                </div>
+              </div>
+
+              <div className="case-header__rail">
+                <div className="metric-stack">
+                  <div className="metric-card">
+                    <span>{ui.quickMetrics.verdict}</span>
+                    <strong>{recommendation.boundedScore}/100</strong>
+                  </div>
+                  <div className="metric-card">
+                    <span>{ui.quickMetrics.evidence}</span>
+                    <strong>{formatPercent(selectedProject.evidenceCoverage)}</strong>
+                  </div>
+                  <div className="metric-card">
+                    <span>{ui.quickMetrics.trust}</span>
+                    <strong>{selectedProject.trustScore}/100</strong>
+                  </div>
+                  <div className="metric-card">
+                    <span>{ui.quickMetrics.risk}</span>
+                    <strong>{selectedProject.anomalyRisk}/100</strong>
+                  </div>
+                </div>
+
+                <div className="snapshot-card">
+                  <div className="snapshot-card__row">
+                    <span>{ui.caseSummary.submittedBy}</span>
+                    <strong>{t(selectedProject.submission.submittedBy)}</strong>
+                  </div>
+                  <div className="snapshot-card__row">
+                    <span>{ui.caseSummary.submittedAt}</span>
+                    <strong>{formatReviewDate(selectedProject.submission.submittedAt, lang)}</strong>
+                  </div>
+                  <div className="snapshot-card__row">
+                    <span>{ui.caseSummary.reviewWindow}</span>
+                    <strong>{t(selectedProject.submission.reviewWindow)}</strong>
+                  </div>
+                  <div className="snapshot-card__row">
+                    <span>{ui.caseSummary.lastTouched}</span>
+                    <strong>{formatReviewDate(selectedReview.lastTouched, lang)}</strong>
+                  </div>
+                  <div className="snapshot-card__row">
+                    <span>{ui.caseSummary.owner}</span>
+                    <strong>{t(selectedReview.owner)}</strong>
+                  </div>
+                </div>
+
+                <div className="risk-card">
+                  <span>{ui.caseSummary.topRisks}</span>
+                  <ul>
+                    {selectedProject.anomalies.map((anomaly) => (
+                      <li key={t(anomaly.title)}>
+                        <strong>{ui.severityLabels[anomaly.severity]}</strong>
+                        <p>{t(anomaly.title)}</p>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+
+                <div className="link-card">
+                  <span>{ui.caseSummary.links}</span>
+                  <div className="link-list">
+                    {selectedProject.submission.links.map((link) => (
+                      <a key={link.url + t(link.label)} href={link.url} target="_blank" rel="noreferrer">
+                        {t(link.label)}
+                      </a>
+                    ))}
                   </div>
                 </div>
               </div>
             </div>
           </article>
 
-          <section className="review-ops-grid">
-            <article className="card">
+          <section className="review-grid">
+            <article className="panel">
               <SectionTitle
-                eyebrow={ui.sections.reviewFlow.eyebrow}
-                title={ui.sections.reviewFlow.title}
-                description={ui.sections.reviewFlow.description}
-              />
-
-              <div className="workspace-meta">
-                <div className="workspace-metric">
-                  <span>{ui.reviewMeta.owner}</span>
-                  <strong>{t(selectedReview.owner)}</strong>
-                </div>
-                <div className="workspace-metric">
-                  <span>{ui.reviewMeta.nextDecision}</span>
-                  <strong>{formatReviewDate(selectedReview.nextDecision, lang)}</strong>
-                </div>
-                <div className="workspace-metric">
-                  <span>{ui.reviewMeta.openRequests}</span>
-                  <strong>{openRequests}</strong>
-                </div>
-                <div className="workspace-metric">
-                  <span>{ui.reviewMeta.trancheStatus}</span>
-                  <strong>{`${selectedReview.approvedTranches}/${selectedProject.milestones.length}`}</strong>
-                </div>
-              </div>
-
-              <div className="workflow-stage-strip">
-                {reviewStageOrder.map((stageKey, index) => {
-                  const currentStageIndex = reviewStageOrder.indexOf(selectedReview.currentStage);
-                  const stageState =
-                    index < currentStageIndex
-                      ? "complete"
-                      : index === currentStageIndex
-                        ? "active"
-                        : "pending";
-
-                  return (
-                    <div key={stageKey} className={`workflow-stage workflow-stage--${stageState}`}>
-                      <div className="workflow-stage__index">{`0${index + 1}`}</div>
-                      <div className="workflow-stage__content">
-                        <strong>{ui.workflowStages[stageKey].label}</strong>
-                        <p>{ui.workflowStages[stageKey].caption}</p>
-                      </div>
-                      <span className={`workflow-stage__status workflow-stage__status--${stageState}`}>
-                        {ui.reviewMeta[stageState]}
-                      </span>
-                    </div>
-                  );
-                })}
-              </div>
-            </article>
-
-            <article className="card card--paper">
-              <SectionTitle
-                eyebrow={ui.sections.actionDock.eyebrow}
-                title={ui.sections.actionDock.title}
-                description={ui.sections.actionDock.description}
-              />
-
-              <div className="action-grid">
-                <button
-                  type="button"
-                  className="action-button action-button--warning"
-                  onClick={handleRequestEvidence}
-                  disabled={requestableCount === 0}
-                >
-                  {ui.actions.requestEvidence}
-                </button>
-                <button
-                  type="button"
-                  className="action-button action-button--danger"
-                  onClick={handleFlagRisk}
-                >
-                  {ui.actions.flagRisk}
-                </button>
-                <button
-                  type="button"
-                  className="action-button action-button--success"
-                  onClick={handleApproveTranche}
-                  disabled={!canApproveTranche}
-                >
-                  {ui.actions.approveTranche}
-                </button>
-                <button
-                  type="button"
-                  className="action-button action-button--neutral"
-                  onClick={handleToggleWatchlist}
-                >
-                  {selectedReview.watchlisted
-                    ? ui.actions.removeFromWatchlist
-                    : ui.actions.moveToWatchlist}
-                </button>
-              </div>
-
-              <div className="action-summary">
-                <div className="action-summary__item">
-                  <span>{ui.reviewMeta.watchlist}</span>
-                  <strong>{selectedReview.watchlisted ? (lang === "zh" ? "已开启" : "On") : lang === "zh" ? "未开启" : "Off"}</strong>
-                </div>
-                <div className="action-summary__item">
-                  <span>{ui.reviewMeta.riskFlags}</span>
-                  <strong>{selectedReview.riskFlags}</strong>
-                </div>
-                <div className="action-summary__item">
-                  <span>{ui.reviewMeta.noteCount}</span>
-                  <strong>{selectedReview.notes.length}</strong>
-                </div>
-                <div className="action-summary__item">
-                  <span>{ui.reviewMeta.openRequests}</span>
-                  <strong>{`${openRequests}/${selectedReview.evidenceRequests.length}`}</strong>
-                </div>
-              </div>
-
-              <div
-                className={`approval-guard ${
-                  canApproveTranche ? "approval-guard--ready" : "approval-guard--blocked"
-                }`}
-              >
-                <strong>
-                  {canApproveTranche ? ui.approvalGate.ready : ui.approvalGate.blocked}
-                </strong>
-                <p>
-                  {canApproveTranche
-                    ? ui.approvalGate.readyCopy
-                    : ui.approvalGate.blockedCopy}
-                </p>
-                {!canApproveTranche && approvalBlockers.length > 0 ? (
-                  <ul>
-                    {approvalBlockers.map((blocker) => (
-                      <li key={blocker}>{ui.approvalBlockers[blocker]}</li>
-                    ))}
-                  </ul>
-                ) : null}
-              </div>
-
-              <p className="action-helper">{ui.actions.helper}</p>
-            </article>
-          </section>
-
-          <section className="score-grid">
-            <SignalTile
-              label={ui.signalTiles.trust.label}
-              value={`${selectedProject.trustScore}/100`}
-              note={ui.signalTiles.trust.note}
-              tone="success"
-            />
-            <SignalTile
-              label={ui.signalTiles.evidence.label}
-              value={`${selectedProject.evidenceCoverage}/100`}
-              note={ui.signalTiles.evidence.note}
-              tone="warning"
-            />
-            <SignalTile
-              label={ui.signalTiles.community.label}
-              value={`${selectedProject.communityConfidence}/100`}
-              note={ui.signalTiles.community.note}
-              tone="neutral"
-            />
-            <SignalTile
-              label={ui.signalTiles.anomaly.label}
-              value={`${selectedProject.anomalyRisk}/100`}
-              note={ui.signalTiles.anomaly.note}
-              tone="danger"
-            />
-          </section>
-
-          <section className="detail-grid">
-            <article className="card card--paper">
-              <SectionTitle
-                eyebrow={ui.sections.requestPanel.eyebrow}
-                title={ui.sections.requestPanel.title}
-                description={ui.sections.requestPanel.description}
-              />
-
-              <div className="request-list">
-                {selectedReview.evidenceRequests.map((request, index) => (
-                  <div
-                    key={`${request.due}-${request.label.en}`}
-                    className={`request-card request-card--${requestToneMap[request.status]}`}
-                  >
-                    <div className="request-card__topline">
-                      <strong>{t(request.label)}</strong>
-                      <span className={`request-status request-status--${requestToneMap[request.status]}`}>
-                        {ui.requestStatuses[request.status]}
-                      </span>
-                    </div>
-                    <div className="request-card__meta">
-                      <span>{`${ui.requestPanel.owner} · ${t(request.owner)}`}</span>
-                      <span>{`${ui.requestPanel.due} · ${formatReviewDate(request.due, lang)}`}</span>
-                    </div>
-                    {request.status === "needsRequest" ? (
-                      <button
-                        type="button"
-                        className="inline-action"
-                        onClick={() => queueEvidenceRequest(index)}
-                      >
-                        {ui.requestPanel.requestNow}
-                      </button>
-                    ) : null}
-                    {request.status === "requested" ? (
-                      <button
-                        type="button"
-                        className="inline-action inline-action--secondary"
-                        onClick={() => markEvidenceReceived(index)}
-                      >
-                        {ui.requestPanel.markReceived}
-                      </button>
-                    ) : null}
-                  </div>
-                ))}
-              </div>
-            </article>
-
-            <article className="card card--paper">
-              <SectionTitle
-                eyebrow={ui.sections.reviewerNotes.eyebrow}
-                title={ui.sections.reviewerNotes.title}
-                description={ui.sections.reviewerNotes.description}
-              />
-
-              <div className="note-form">
-                <textarea
-                  className="note-textarea"
-                  value={noteDrafts[selectedId] ?? ""}
-                  onChange={(event) =>
-                    setNoteDrafts((current) => ({
-                      ...current,
-                      [selectedId]: event.target.value,
-                    }))
-                  }
-                  placeholder={ui.notes.placeholder}
-                />
-                <button
-                  type="button"
-                  className="action-button action-button--neutral note-save"
-                  onClick={handleSaveNote}
-                  disabled={!noteDrafts[selectedId]?.trim()}
-                >
-                  {ui.notes.save}
-                </button>
-              </div>
-
-              <div className="notes-stack">
-                {selectedReview.notes.length > 0 ? (
-                  selectedReview.notes.map((note, index) => (
-                    <div key={`${note.date}-${index}`} className="note-card">
-                      <div className="note-card__topline">
-                        <div>
-                          <strong>{t(note.author)}</strong>
-                          <span>{t(note.role)}</span>
-                        </div>
-                        <span>{formatReviewDate(note.date, lang)}</span>
-                      </div>
-                      <p>{t(note.content)}</p>
-                    </div>
-                  ))
-                ) : (
-                  <p className="empty-copy">{ui.notes.empty}</p>
-                )}
-              </div>
-            </article>
-
-            <article className="card card--paper">
-              <SectionTitle
-                eyebrow={ui.sections.decisionThesis.eyebrow}
-                title={ui.sections.decisionThesis.title}
-                description={ui.sections.decisionThesis.description}
-              />
-
-              <div className="check-grid">
-                <div>
-                  <h3>{ui.reasonsToLean}</h3>
-                  <ul>
-                    {selectedProject.thesisChecks.map((item) => (
-                      <li key={t(item)}>{t(item)}</li>
-                    ))}
-                  </ul>
-                </div>
-                <div>
-                  <h3>{ui.reasonsToSlow}</h3>
-                  <ul>
-                    {selectedProject.concernChecks.map((item) => (
-                      <li key={t(item)}>{t(item)}</li>
-                    ))}
-                  </ul>
-                </div>
-              </div>
-            </article>
-
-            <article className="card">
-              <SectionTitle
-                eyebrow={ui.sections.evidenceMatrix.eyebrow}
-                title={ui.sections.evidenceMatrix.title}
-                description={ui.sections.evidenceMatrix.description}
+                eyebrow={ui.reviewSection.eyebrow}
+                title={ui.evidenceSection.title}
+                description={ui.evidenceSection.description}
               />
 
               <div className="evidence-list">
                 {selectedProject.evidence.map((item) => (
-                  <div key={t(item.label)} className="evidence-row">
-                    <div className="evidence-row__content">
-                      <div className="evidence-row__label">
+                  <div key={t(item.label)} className="evidence-card">
+                    <div className="evidence-card__header">
+                      <div>
                         <strong>{t(item.label)}</strong>
-                        <span className={`badge badge--${item.status}`}>
-                          {ui.badgeLabels[item.status]}
-                        </span>
+                        <p>{t(item.detail)}</p>
                       </div>
-                      <p>{t(item.detail)}</p>
-                    </div>
-                    <div className="weight-pill">{item.weight} pts</div>
-                  </div>
-                ))}
-              </div>
-            </article>
-
-            <article className="card">
-              <SectionTitle
-                eyebrow={ui.sections.milestoneLedger.eyebrow}
-                title={ui.sections.milestoneLedger.title}
-                description={ui.sections.milestoneLedger.description}
-              />
-
-              <div className="milestone-list">
-                {selectedProject.milestones.map((milestone) => (
-                  <div key={t(milestone.name)} className="milestone-row">
-                    <div>
-                      <strong>{t(milestone.name)}</strong>
-                      <p>{milestone.due}</p>
-                    </div>
-                    <div className="milestone-row__bar">
-                      <div
-                        className="milestone-row__bar-fill"
-                        style={{ width: `${milestone.confidence}%` }}
-                      />
-                    </div>
-                    <div className="milestone-row__meta">
-                      <strong>{milestone.confidence}%</strong>
-                      <span>{ui.milestoneStatuses[milestone.status]}</span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </article>
-
-            <article className="card card--warning">
-              <SectionTitle
-                eyebrow={ui.sections.anomalyRadar.eyebrow}
-                title={ui.sections.anomalyRadar.title}
-                description={ui.sections.anomalyRadar.description}
-              />
-
-              <div className="anomaly-summary">
-                <div>
-                  <span>{ui.detail.anomalyLoad}</span>
-                  <strong>{anomalyCount}</strong>
-                </div>
-                <div>
-                  <span>{ui.primaryAlert}</span>
-                  <strong>{t(primaryAnomaly.title)}</strong>
-                </div>
-              </div>
-
-              <div className="anomaly-list">
-                {selectedProject.anomalies.map((anomaly) => (
-                  <div
-                    key={t(anomaly.title)}
-                    className={`anomaly-card anomaly-card--${anomaly.severity}`}
-                  >
-                    <div className="anomaly-card__topline">
-                      <span>
-                        {ui.severityLabels[anomaly.severity]} {ui.severitySuffix}
-                      </span>
-                      <strong>{t(anomaly.title)}</strong>
-                    </div>
-                    <p>{t(anomaly.detail)}</p>
-                  </div>
-                ))}
-              </div>
-            </article>
-
-            <article className="card card--wide">
-              <SectionTitle
-                eyebrow={ui.sections.auditLog.eyebrow}
-                title={ui.sections.auditLog.title}
-                description={ui.sections.auditLog.description}
-              />
-
-              <div className="audit-list">
-                {selectedReview.auditLog.length > 0 ? (
-                  selectedReview.auditLog.map((entry, index) => (
-                    <div key={`${entry.date}-${index}`} className={`audit-entry audit-entry--${entry.tone}`}>
-                      <span className="audit-entry__date">
-                        {formatReviewDate(entry.date, lang)}
-                      </span>
-                      <div className="audit-entry__content">
-                        <strong>{t(entry.title)}</strong>
-                        <p>{t(entry.detail)}</p>
+                      <div className="evidence-card__badges">
+                        <span className={`badge badge--${item.status}`}>{ui.badges[item.status]}</span>
+                        <span className="weight-pill">{item.weight} {ui.evidenceSection.weights}</span>
                       </div>
                     </div>
-                  ))
+
+                    <div className="evidence-card__claim">
+                      <span>{ui.evidenceSection.claim}</span>
+                      <strong>{t(item.claim)}</strong>
+                    </div>
+
+                    <div className="evidence-card__meta">
+                      <div>
+                        <span>{ui.evidenceSection.source}</span>
+                        <strong>{`${t(item.sourceType)} · ${t(item.sourceLabel)}`}</strong>
+                      </div>
+                      <div>
+                        <span>{ui.evidenceSection.submittedBy}</span>
+                        <strong>{t(item.submittedBy)}</strong>
+                      </div>
+                      <div>
+                        <span>{ui.evidenceSection.verifiedBy}</span>
+                        <strong>{t(item.verifiedBy)}</strong>
+                      </div>
+                      <div>
+                        <span>{ui.evidenceSection.lastChecked}</span>
+                        <strong>{formatReviewDate(item.lastChecked, lang)}</strong>
+                      </div>
+                    </div>
+
+                    <a href={item.sourceUrl} target="_blank" rel="noreferrer" className="text-link">
+                      {ui.evidenceSection.openSource}
+                    </a>
+                  </div>
+                ))}
+              </div>
+            </article>
+
+            <article className="panel">
+              <SectionTitle
+                eyebrow={ui.reviewSection.eyebrow}
+                title={ui.requestSection.title}
+                description={ui.reviewSection.description}
+              />
+
+              <div className="workflow-stage-strip">
+                {reviewStageOrder.map((stageKey, index) => {
+                  const currentStageIndex = reviewStageOrder.indexOf(selectedReview.currentStage);
+                  const state =
+                    index < currentStageIndex ? "complete" : index === currentStageIndex ? "active" : "pending";
+
+                  return (
+                    <div key={stageKey} className={`workflow-stage workflow-stage--${state}`}>
+                      <div className="workflow-stage__index">{`0${index + 1}`}</div>
+                      <div>
+                        <strong>{ui.workflowStages[stageKey].label}</strong>
+                        <p>{ui.workflowStages[stageKey].caption}</p>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              <div className="request-list">
+                {selectedReview.evidenceRequests.filter((item) => item.status !== "received").length > 0 ? (
+                  selectedReview.evidenceRequests
+                    .filter((item) => item.status !== "received")
+                    .map((request, index) => {
+                      const originalIndex = selectedReview.evidenceRequests.findIndex(
+                        (candidate) => candidate === request,
+                      );
+
+                      return (
+                        <div key={`${request.due}-${t(request.label)}`} className={`request-card request-card--${request.status}`}>
+                          <div className="request-card__topline">
+                            <strong>{t(request.label)}</strong>
+                            <span>{ui.requestSection.statuses[request.status]}</span>
+                          </div>
+                          <div className="request-card__meta">
+                            <span>{`${ui.requestSection.owner} · ${t(request.owner)}`}</span>
+                            <span>{`${ui.requestSection.due} · ${formatReviewDate(request.due, lang)}`}</span>
+                          </div>
+                          {request.status === "requested" ? (
+                            <button
+                              type="button"
+                              className="secondary-button"
+                              onClick={() => markEvidenceReceived(originalIndex)}
+                            >
+                              {ui.requestSection.markReceived}
+                            </button>
+                          ) : null}
+                        </div>
+                      );
+                    })
                 ) : (
-                  <p className="empty-copy">{ui.audit.empty}</p>
+                  <div className="empty-state">{ui.requestSection.empty}</div>
                 )}
               </div>
-            </article>
 
-            <article className="card card--wide">
-              <SectionTitle
-                eyebrow={ui.sections.feedback.eyebrow}
-                title={ui.sections.feedback.title}
-                description={ui.sections.feedback.description}
-              />
+              <div className="composer-card">
+                <div className="composer-card__header">
+                  <h3>{ui.actionComposer.title}</h3>
+                  <p>{ui.actionComposer.description}</p>
+                </div>
 
-              <div className="timeline">
-                {selectedProject.updates.map((update) => (
-                  <div key={`${update.date}-${t(update.title)}`} className="timeline-row">
-                    <span>{update.date}</span>
-                    <div>
-                      <strong>{t(update.title)}</strong>
-                      <p>{t(update.detail)}</p>
-                    </div>
-                  </div>
-                ))}
+                <div className="composer-grid">
+                  <label className="field">
+                    <span>{ui.actionComposer.action}</span>
+                    <select
+                      value={selectedComposer.actionType}
+                      onChange={(event) =>
+                        updateComposer(selectedId, { actionType: event.target.value })
+                      }
+                    >
+                      <option value="requestEvidence">{ui.actionComposer.actions.requestEvidence}</option>
+                      <option value="flagRisk">{ui.actionComposer.actions.flagRisk}</option>
+                      <option value="approveTranche">{ui.actionComposer.actions.approveTranche}</option>
+                      <option value="moveToWatchlist">{ui.actionComposer.actions.moveToWatchlist}</option>
+                      <option value="removeFromWatchlist">{ui.actionComposer.actions.removeFromWatchlist}</option>
+                    </select>
+                  </label>
+
+                  {selectedComposer.actionType === "requestEvidence" ? (
+                    <label className="field">
+                      <span>{ui.actionComposer.request}</span>
+                      <select
+                        value={selectedComposer.requestIndex}
+                        onChange={(event) =>
+                          updateComposer(selectedId, { requestIndex: Number(event.target.value) })
+                        }
+                      >
+                        {requestableOptions.map(({ request, index }) => (
+                          <option key={`${request.due}-${index}`} value={index}>
+                            {t(request.label)}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                  ) : null}
+
+                  <label className="field">
+                    <span>{ui.actionComposer.owner}</span>
+                    <input
+                      type="text"
+                      value={selectedComposer.owner}
+                      onChange={(event) => updateComposer(selectedId, { owner: event.target.value })}
+                      placeholder={t(selectedReview.owner)}
+                    />
+                  </label>
+
+                  <label className="field">
+                    <span>{ui.actionComposer.due}</span>
+                    <input
+                      type="date"
+                      value={selectedComposer.due}
+                      onChange={(event) => updateComposer(selectedId, { due: event.target.value })}
+                    />
+                  </label>
+                </div>
+
+                <label className="field field--stacked">
+                  <span>{ui.actionComposer.reason}</span>
+                  <textarea
+                    value={selectedComposer.reason}
+                    onChange={(event) => updateComposer(selectedId, { reason: event.target.value })}
+                    placeholder={ui.actionComposer.placeholder}
+                  />
+                </label>
+
+                {selectedComposer.actionType === "approveTranche" && !canApproveNextTranche ? (
+                  <div className="inline-alert inline-alert--warning">{ui.actionComposer.blocked}</div>
+                ) : null}
+
+                <div className="composer-card__footer">
+                  <p>{ui.actionComposer.helper}</p>
+                  <button
+                    type="button"
+                    className="primary-button"
+                    onClick={handleSubmitAction}
+                    disabled={
+                      !selectedComposer.reason.trim() ||
+                      (selectedComposer.actionType === "approveTranche" && !canApproveNextTranche) ||
+                      (selectedComposer.actionType === "requestEvidence" && requestableOptions.length === 0)
+                    }
+                  >
+                    {ui.actionComposer.submit}
+                  </button>
+                </div>
               </div>
             </article>
           </section>
+
+          <article className="panel">
+            <SectionTitle
+              eyebrow={ui.activitySection.eyebrow}
+              title={ui.activitySection.title}
+              description={ui.activitySection.description}
+            />
+
+            <div className="activity-toolbar">
+              <div className="activity-filters">
+                {["all", "internal", "system", "external"].map((filter) => (
+                  <button
+                    key={filter}
+                    type="button"
+                    className={activityFilter === filter ? "is-active" : ""}
+                    onClick={() => setActivityFilter(filter)}
+                  >
+                    {activityTypeLabels[lang][filter]}
+                  </button>
+                ))}
+              </div>
+
+              <div className="note-composer">
+                <textarea
+                  value={noteDrafts[selectedId] ?? ""}
+                  onChange={(event) =>
+                    setNoteDrafts((current) => ({ ...current, [selectedId]: event.target.value }))
+                  }
+                  placeholder={ui.activitySection.notePlaceholder}
+                />
+                <button
+                  type="button"
+                  className="secondary-button"
+                  onClick={handleSaveNote}
+                  disabled={!noteDrafts[selectedId]?.trim()}
+                >
+                  {ui.activitySection.saveNote}
+                </button>
+              </div>
+            </div>
+
+            <div className="activity-list">
+              {filteredActivity.length > 0 ? (
+                filteredActivity.map((item) => (
+                  <div key={item.id} className={`activity-row activity-row--${item.tone}`}>
+                    <div className="activity-row__date">{formatReviewDate(item.date, lang)}</div>
+                    <div className="activity-row__content">
+                      <div className="activity-row__topline">
+                        <span className={`activity-pill activity-pill--${item.type}`}>
+                          {ui.activityPills[item.type]}
+                        </span>
+                        <strong>{t(item.title)}</strong>
+                      </div>
+                      <p>{t(item.detail)}</p>
+                      {item.actor ? <span className="activity-row__actor">{t(item.actor)}</span> : null}
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <div className="empty-state">{ui.activitySection.empty}</div>
+              )}
+            </div>
+          </article>
         </section>
 
-        <aside className="decision-rail card card--paper">
+        <aside className="panel panel--packet">
           <SectionTitle
-            eyebrow={ui.sections.decisionStudio.eyebrow}
-            title={ui.sections.decisionStudio.title}
-            description={ui.sections.decisionStudio.description}
+            eyebrow={ui.decisionPacket.eyebrow}
+            title={ui.decisionPacket.title}
+            description={ui.decisionPacket.description}
           />
 
-          <DecisionMeter
-            score={recommendation.boundedScore}
-            tone={recommendation.tone}
-            label={verdictLabels[lang][recommendation.verdictKey]}
-            caption={`${ui.suggestedCommitmentPrefix} ${formatSupportValue(supportMode, supportValue, lang)}${
-              staged ? (lang === "zh" ? "，分阶段释放。" : " in staged release.") : "."
-            }`}
-            compact
-          />
-
-          <div className="control-group">
-            <label htmlFor="support-mode">{ui.supportMode}</label>
-            <select
-              id="support-mode"
-              value={supportMode}
-              onChange={(event) => {
-                const nextMode = event.target.value;
-                setSupportMode(nextMode);
-                setSupportValue(nextMode === "money" ? 40000 : nextMode === "time" ? 32 : 2);
-              }}
-            >
-              <option value="money">{ui.supportModes.money}</option>
-              <option value="time">{ui.supportModes.time}</option>
-              <option value="participation">{ui.supportModes.participation}</option>
-            </select>
+          <div className={`packet-score packet-score--${recommendation.tone}`}>
+            <strong>{recommendation.boundedScore}</strong>
+            <span>/100</span>
+            <p>{verdictLabels[lang][recommendation.verdictKey]}</p>
           </div>
 
-          <div className="control-group">
-            <div className="control-group__label-row">
-              <label htmlFor="support-value">{ui.commitmentSize}</label>
-              <strong>{formatSupportValue(supportMode, supportValue, lang)}</strong>
+          <div className="packet-grid">
+            <div>
+              <span>{ui.decisionPacket.template}</span>
+              <strong>{policyLabels[lang][recommendation.policyKey]}</strong>
             </div>
-            <input
-              id="support-value"
-              type="range"
-              min={supportMode === "money" ? 10000 : 1}
-              max={supportMode === "money" ? 120000 : supportMode === "time" ? 120 : 6}
-              step={supportMode === "money" ? 5000 : 1}
-              value={supportValue}
-              onChange={(event) => setSupportValue(Number(event.target.value))}
-            />
-          </div>
-
-          <div className="control-group">
-            <div className="control-group__label-row">
-              <label htmlFor="risk-tolerance">{ui.riskTolerance}</label>
-              <strong>{riskTolerance}</strong>
+            <div>
+              <span>{ui.decisionPacket.committeeStatus}</span>
+              <strong>{ui.decisionPacket.status[selectedReview.committeeStatus]}</strong>
             </div>
-            <input
-              id="risk-tolerance"
-              type="range"
-              min="0"
-              max="100"
-              value={riskTolerance}
-              onChange={(event) => setRiskTolerance(Number(event.target.value))}
-            />
+            <div>
+              <span>{ui.decisionPacket.recommendedAmount}</span>
+              <strong>{formatCurrency(recommendedAmount, lang)}</strong>
+            </div>
+            <div>
+              <span>{ui.decisionPacket.nextGate}</span>
+              <strong>{formatReviewDate(selectedReview.nextDecision, lang)}</strong>
+            </div>
+            <div>
+              <span>{ui.decisionPacket.owner}</span>
+              <strong>{t(selectedReview.owner)}</strong>
+            </div>
+            <div>
+              <span>{ui.caseSummary.requestedSupport}</span>
+              <strong>{t(selectedProject.ask)}</strong>
+            </div>
           </div>
 
-          <div className="toggle-list">
-            <label>
-              <input
-                type="checkbox"
-                checked={staged}
-                onChange={() => setStaged((value) => !value)}
-              />
-              <span>{ui.toggles.staged}</span>
-            </label>
-            <label>
-              <input
-                type="checkbox"
-                checked={replication}
-                onChange={() => setReplication((value) => !value)}
-              />
-              <span>{ui.toggles.replication}</span>
-            </label>
-            <label>
-              <input
-                type="checkbox"
-                checked={escrow}
-                onChange={() => setEscrow((value) => !value)}
-              />
-              <span>{ui.toggles.escrow}</span>
-            </label>
-          </div>
+          <article className="packet-section">
+            <h3>{policyLabels[lang][recommendation.policyKey]}</h3>
+            <p>{ui.decisionPacket.templates[recommendation.policyKey].summary}</p>
+          </article>
 
-          <article className="strategy-card">
-            <span className="strategy-card__eyebrow">{ui.supportBlueprint}</span>
-            <div className="strategy-card__list">
-              {tranchePlan.map((milestone) => (
-                <div key={t(milestone.name)} className="strategy-step">
-                  <div className="strategy-step__allocation">
-                    {formatTrancheValue(supportMode, supportValue, milestone.allocation, lang)}
-                  </div>
+          <article className="packet-section">
+            <h3>{ui.decisionPacket.releasePlan}</h3>
+            <div className="funding-plan">
+              {fundingPlan.map((item) => (
+                <div key={`${item.name}-${item.due}`} className="funding-step">
                   <div>
-                    <strong>{t(milestone.name)}</strong>
-                    <p>{ui.milestoneStatuses[milestone.status]}</p>
+                    <strong>{item.name}</strong>
+                    <p>{item.due}</p>
                   </div>
+                  <span>{item.amount}</span>
                 </div>
               ))}
             </div>
           </article>
 
-          <div className="rationale-list">
-            {recommendation.reasonKeys.map((reasonKey) => (
-              <div key={reasonKey} className="rationale-row">
-                <span />
-                <p>{reasonLabels[lang][reasonKey]}</p>
-              </div>
-            ))}
-          </div>
-
-          <article className="ops-note">
-            <span>{ui.whyMatters}</span>
-            <p>{ui.whyMattersCopy}</p>
+          <article className="packet-section">
+            <h3>{ui.decisionPacket.controls}</h3>
+            <ul className="packet-list">
+              {ui.decisionPacket.templates[recommendation.policyKey].controls.map((item) => (
+                <li key={item}>{item}</li>
+              ))}
+            </ul>
           </article>
+
+          <article className="packet-section">
+            <h3>{ui.decisionPacket.blockers}</h3>
+            {approvalBlockers.length > 0 ? (
+              <ul className="packet-list">
+                {approvalBlockers.map((blocker) => (
+                  <li key={blocker}>{ui.blockers[blocker]}</li>
+                ))}
+              </ul>
+            ) : (
+              <p className="packet-copy">{ui.decisionPacket.noBlockers}</p>
+            )}
+          </article>
+
+          <article className="packet-section">
+            <h3>{ui.caseSummary.topRisks}</h3>
+            <ul className="packet-list">
+              <li>{t(primaryAnomaly.title)}</li>
+              {recommendationReasons.map((reason) => (
+                <li key={reason}>{reason}</li>
+              ))}
+            </ul>
+          </article>
+
+          <div className="packet-actions">
+            <button type="button" className="secondary-button" onClick={handleCopyPacket}>
+              {copiedPacketId === selectedId ? ui.decisionPacket.copied : ui.decisionPacket.copy}
+            </button>
+            <button
+              type="button"
+              className="primary-button"
+              onClick={handleQueueCommittee}
+              disabled={!canQueueCommittee}
+            >
+              {selectedReview.committeeStatus === "queued"
+                ? ui.decisionPacket.queued
+                : canQueueCommittee
+                  ? ui.decisionPacket.queue
+                  : ui.decisionPacket.notReady}
+            </button>
+          </div>
         </aside>
       </main>
     </div>

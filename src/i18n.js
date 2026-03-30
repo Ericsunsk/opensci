@@ -1,339 +1,315 @@
 export const verdictLabels = {
   en: {
-    doNotSupport: "Do not support",
+    doNotSupport: "Hold",
     watchOnly: "Watch only",
-    supportConditionally: "Support conditionally",
-    supportNow: "Support now",
+    supportConditionally: "Conditional support",
+    supportNow: "Ready to structure",
   },
   zh: {
-    doNotSupport: "暂不支持",
+    doNotSupport: "暂缓处理",
     watchOnly: "继续观察",
-    supportConditionally: "有条件支持",
-    supportNow: "现在支持",
+    supportConditionally: "条件支持",
+    supportNow: "可进入结构化支持",
   },
 };
 
-export const postureCopy = {
+export const policyLabels = {
   en: {
-    success: {
-      label: "High conviction",
-      copy: "The thesis is already supported by enough inspectable proof to start backing now, while still keeping later tranches gated.",
-    },
-    warning: {
-      label: "Conditional support",
-      copy: "The project is promising, but support should stay tightly structured around verification and milestone proof.",
-    },
-    neutral: {
-      label: "Observation mode",
-      copy: "The right move is to keep the project in view and wait for higher-quality evidence before committing real resources.",
-    },
-    danger: {
-      label: "Hold position",
-      copy: "Narrative momentum is currently outrunning trustworthy evidence, so the product should help the user avoid a premature decision.",
-    },
+    milestoneGrant: "Exploration Grant",
+    replicationGate: "Replication Gate",
+    watchlistOnly: "Watchlist Only",
+    declineHold: "Hold and archive",
   },
   zh: {
-    success: {
-      label: "高把握度",
-      copy: "当前论点已经有足够多可检查的证据支撑，可以开始支持，但后续资源仍应绑定里程碑释放。",
-    },
-    warning: {
-      label: "条件支持",
-      copy: "项目方向有潜力，但支持动作必须更强地绑定验证和阶段性证明。",
-    },
-    neutral: {
-      label: "观察模式",
-      copy: "更合理的动作是继续追踪，等待更高质量证据出现后再做真实投入。",
-    },
-    danger: {
-      label: "保持克制",
-      copy: "当前传播势能已经跑在可信证据前面，产品应帮助用户避免过早决策。",
-    },
+    milestoneGrant: "探索型资助",
+    replicationGate: "复现门槛支持",
+    watchlistOnly: "仅观察，不释放资金",
+    declineHold: "暂缓并归档",
+  },
+};
+
+export const activityTypeLabels = {
+  en: {
+    all: "All",
+    internal: "Internal notes",
+    system: "System actions",
+    external: "Project updates",
+  },
+  zh: {
+    all: "全部",
+    internal: "内部备注",
+    system: "系统动作",
+    external: "项目更新",
   },
 };
 
 export const reasonLabels = {
   en: {
-    commitmentRightSized:
-      "The current commitment size stays inside the proof budget the project has actually earned.",
-    commitmentOversized:
-      "The proposed commitment is larger than the current proof budget can safely carry.",
-    trustStrong: "The team's delivery history lowers execution risk.",
-    trustWeak: "Trust is still concentrated in claims rather than delivered proof.",
-    evidenceStrong: "Evidence coverage is broad enough to justify milestone-based support.",
-    evidenceWeak: "Evidence coverage is too thin for full upfront commitment.",
-    stagedOn: "Staged release cuts downside if future checkpoints miss.",
-    stagedOff: "Without staged release, the user absorbs too much uncertainty early.",
-    replicationOn: "Independent replication is required before higher commitment.",
-    replicationOff: "Skipping replication raises the chance of backing inflated results.",
-    escrowOn: "Escrow keeps later releases tied to milestone proof instead of blind trust.",
-    escrowOff: "Without escrow, the reviewer loses too much control after release.",
+    strongEvidence: "Inspectable proof already covers a meaningful part of the thesis.",
+    thinEvidence: "The thesis is still ahead of the available proof.",
+    deliveryStrong: "Previous delivery history lowers execution uncertainty.",
+    deliveryThin: "Execution confidence still relies too much on team claims.",
+    controlsOpen: "Open requests and governance controls are within the current policy.",
+    controlsBlocked: "Outstanding requests or governance blockers still constrain release.",
+    riskContained: "Failure modes are visible and currently bounded.",
+    riskElevated: "Visible failure modes are still severe enough to distort the decision.",
   },
   zh: {
-    commitmentRightSized: "当前投入规模仍在项目已证明能力可以承接的范围内。",
-    commitmentOversized: "当前拟投入规模已经超过现有证据预算所能安全承接的范围。",
-    trustStrong: "团队过往的交付记录有效降低了执行风险。",
-    trustWeak: "当前信任仍主要建立在陈述上，而不是已完成的交付上。",
-    evidenceStrong: "证据覆盖已经足够广，能够支撑基于里程碑的支持方式。",
-    evidenceWeak: "证据覆盖仍然偏薄，不足以支撑一次性前置投入。",
-    stagedOn: "分阶段释放可以在后续检查点失守时显著降低下行风险。",
-    stagedOff: "如果不做分阶段释放，用户会在早期承担过多不确定性。",
-    replicationOn: "在更大额度支持前，引入第三方复现是必要条件。",
-    replicationOff: "跳过复现会显著提高支持到被夸大结果的概率。",
-    escrowOn: "托管机制能把后续释放继续绑在里程碑证明上，而不是靠盲目信任。",
-    escrowOff: "如果没有托管机制，资源释放后的控制权会下降过快。",
+    strongEvidence: "可检查证据已经覆盖了核心论点的相当一部分。",
+    thinEvidence: "当前论点仍然跑在已有证据前面。",
+    deliveryStrong: "既往履约记录有效降低了执行不确定性。",
+    deliveryThin: "当前执行信心仍过度依赖团队陈述。",
+    controlsOpen: "补证请求和治理控制仍在当前政策可承受范围内。",
+    controlsBlocked: "未完成补证或治理阻塞仍然约束资金释放。",
+    riskContained: "当前失败模式已经被看见，并且仍在可控范围内。",
+    riskElevated: "当前失败模式仍足够严重，会扭曲决策结果。",
   },
 };
 
 export const uiCopy = {
   en: {
-    consoleLabel: "OPENSCI Project Support Console",
+    consoleLabel: "OPENSCI Review Workspace",
     metaDescription:
-      "Reviewer workspace for evaluating milestone-based support decisions on high-uncertainty research projects.",
+      "A reviewer workspace for evaluating research submissions, tracing evidence provenance, and packaging milestone-based support decisions.",
     language: {
       zh: "中",
       en: "EN",
     },
     languageSwitchLabel: "Switch language",
-    heroKickers: ["milestone review", "missing-proof triage", "fraud-aware controls"],
-    heroTitle: "Review scientific projects before trust turns into capital.",
-    heroLede:
-      "A reviewer workspace for milestone-based scientific support: inspect evidence, request missing proof, set tranche gates, and monitor whether a project keeps earning support.",
-    heroChips: [
-      "Milestone funding",
-      "Evidence requests",
-      "Attribution signals",
-      "Audit trail",
-    ],
-    currentFocus: "Current focus",
-    reviewProtocol: "Review protocol",
-    currentAsk: "Current ask",
-    milestoneConfidence: "Milestone confidence",
-    primaryAlert: "Primary alert",
-    protocol: [
-      {
-        title: "Read the claim",
-        description: "Make the project thesis explicit before looking at support momentum.",
-      },
-      {
-        title: "Stress the proof",
-        description: "Weight inspectable artifacts above narrative, popularity, or polished updates.",
-      },
-      {
-        title: "Stage the support",
-        description: "Convert belief into tranches so the downside stays bounded.",
-      },
-    ],
-    overview: {
-      decisionPosture: "Decision posture",
-      currentPhase: "Current phase",
-      largestFailureSurface: "Largest failure surface",
-      recommendedCommitment: "Recommended commitment",
-      currentPhaseHelp:
-        "Support should match the maturity of proof, not the ambition of the story.",
-      recommendedStaged: "Released in milestone-based tranches.",
-      recommendedDirect: "Direct commitment with higher downside exposure.",
+    topbarTitle: "Research review workspace",
+    topbarLede:
+      "Review incoming projects, trace evidence provenance, package milestone-based support, and keep the full decision trail visible.",
+    workspaceStatus: {
+      queue: "Inbox",
+      summary: "Case summary",
+      review: "Evidence & review",
+      packet: "Decision packet",
     },
-    queue: {
-      eyebrow: "Project Queue",
-      title: "Support candidates",
+    inbox: {
+      eyebrow: "Inbox",
+      title: "Active review queue",
       description:
-        "Each project enters the workspace with live review status, unresolved requests, and recommendation pressure.",
+        "Triage projects by stage, evidence pressure, and next decision gate instead of reading static showcase cards.",
+      search: "Search project or domain",
+      stageFilter: "Stage",
+      ownerFilter: "Owner",
+      sort: "Sort",
+      allStages: "All stages",
+      allOwners: "All owners",
+      sortOptions: {
+        nextDecision: "Next decision date",
+        highestRisk: "Highest risk",
+        highestEvidenceGap: "Largest evidence gap",
+      },
+      empty: "No projects match the current filters.",
+      nextDecision: "Next gate",
+      owner: "Owner",
+      openRequests: "Open requests",
       trust: "Trust",
       evidence: "Evidence",
       risk: "Risk",
-      selectedProject: "Selected project",
+      lastTouched: "Last touched",
+      priority: {
+        high: "High priority",
+        medium: "Medium priority",
+        low: "Low priority",
+      },
     },
     workflowStages: {
       submitted: {
         label: "Submitted",
-        caption: "Intake packet created",
+        caption: "Intake package created",
       },
       evidence: {
         label: "Evidence review",
-        caption: "Missing proof is requested",
+        caption: "Missing proof is being requested",
       },
       governance: {
         label: "Governance check",
-        caption: "Risk and controls are challenged",
+        caption: "Risk and policy controls are challenged",
       },
       decision: {
-        label: "Tranche decision",
-        caption: "Support structure is locked",
+        label: "Decision design",
+        caption: "Support package is being locked",
       },
       monitoring: {
-        label: "Active monitoring",
-        caption: "Signals are watched after approval",
+        label: "Monitoring",
+        caption: "Signals are watched after release",
       },
     },
-    reviewMeta: {
+    caseSummary: {
+      eyebrow: "Case summary",
+      title: "Submission snapshot",
+      description:
+        "The case header should tell reviewers who submitted the project, what support is being requested, and why the case is in this review cycle.",
+      thesis: "Core claim under review",
+      intakeReason: "Why this case is here",
+      requestedSupport: "Requested support",
+      requestedUse: "Requested use of funds",
+      submittedBy: "Submitted by",
+      submittedAt: "Submitted at",
+      reviewWindow: "Review window",
+      quickMetrics: "Decision snapshot",
+      topRisks: "Top risks",
+      links: "Reference links",
+      lastTouched: "Last touched",
       owner: "Review owner",
-      nextDecision: "Next decision gate",
-      openRequests: "Open requests",
-      trancheStatus: "Tranches approved",
-      watchlist: "Watchlist",
-      riskFlags: "Risk flags",
-      noteCount: "Reviewer notes",
-      complete: "Complete",
-      active: "Active",
-      pending: "Pending",
     },
-    detail: {
-      thesisPrompt: "What the user is being asked to believe",
-      supportShape: "Support shape",
-      decisionReadout: "Decision readout",
-      milestoneAverage: "Milestone avg.",
-      anomalyLoad: "Anomaly load",
+    quickMetrics: {
+      verdict: "Current posture",
+      evidence: "Evidence coverage",
+      trust: "Trust score",
+      risk: "Anomaly risk",
     },
-    signalTiles: {
-      trust: {
-        label: "Trust score",
-        note: "Signals whether the operator has earned credibility through previous delivery.",
-      },
-      evidence: {
-        label: "Evidence coverage",
-        note: "Measures how much of the thesis is backed by inspectable proof instead of narrative.",
-      },
-      community: {
-        label: "Community confidence",
-        note: "Tracks whether external observers are reinforcing the case with real participation.",
-      },
-      anomaly: {
-        label: "Anomaly risk",
-        note: "Flags the probability that exaggeration or unverified claims are shaping the perception.",
-      },
+    reviewSection: {
+      eyebrow: "Evidence & review",
+      title: "Provenance and review operations",
+      description:
+        "Every evidence row should carry a source, a verifier, and a last-check date. Every action should capture why it happened and who owns the next step.",
     },
-    sections: {
-      decisionThesis: {
-        eyebrow: "Decision Thesis",
-        title: "What pushes the reviewer forward, and what slows them down?",
-        description:
-          "A good review product should preserve tension instead of pretending the answer is obvious.",
-      },
-      evidenceMatrix: {
-        eyebrow: "Evidence Matrix",
-        title: "Proof is curated and weighted, not dumped into a long page.",
-        description:
-          "Each evidence row is scored by verifiability, external confirmation, and contribution to the thesis.",
-      },
-      milestoneLedger: {
-        eyebrow: "Milestone Ledger",
-        title: "Support is released only when checkpoints still hold.",
-        description:
-          "This is the product's most important mechanism because it shrinks downside even when the initial judgment is imperfect.",
-      },
-      anomalyRadar: {
-        eyebrow: "Anomaly Radar",
-        title: "Where fraud or exaggeration would surface first",
-        description:
-          "The interface exposes the brittle points so users can understand where the recommendation can fail.",
-      },
-      reviewFlow: {
-        eyebrow: "Review Flow",
-        title: "The workspace tracks where the project is in the decision process.",
-        description:
-          "A real review product needs stage ownership, next gates, and visible bottlenecks, not just a score.",
-      },
-      actionDock: {
-        eyebrow: "Action Dock",
-        title: "Reviewers should be able to push the project forward from the same screen.",
-        description:
-          "Each action updates the review state, changes the operating posture, and writes to the audit trail.",
-      },
-      requestPanel: {
-        eyebrow: "Evidence Requests",
-        title: "Missing proof should be managed as work, not hidden as uncertainty.",
-        description:
-          "Unresolved materials stay visible with owners, deadlines, and request status so reviewers know what is blocking the next gate.",
-      },
-      reviewerNotes: {
-        eyebrow: "Reviewer Notes",
-        title: "Capture why the current posture changed.",
-        description:
-          "Decision quality improves when judgments are documented and revisited instead of living in private memory.",
-      },
-      auditLog: {
-        eyebrow: "Audit Trail",
-        title: "Every review action leaves a visible operational trace.",
-        description:
-          "This makes the decision process inspectable for future reviewers, governance leads, and support operators.",
-      },
-      feedback: {
-        eyebrow: "Continuous Feedback",
-        title: "Project signals still need to be watched after committee action.",
-        description:
-          "For long-cycle research outcomes, the product needs a post-support feedback rail that continuously updates trust.",
-      },
-      decisionStudio: {
-        eyebrow: "Decision Studio",
-        title: "Turn belief into a support strategy",
-        description:
-          "The product should help the user decide how to back a project safely, not just whether they like it.",
-      },
+    evidenceSection: {
+      title: "Evidence provenance",
+      description:
+        "Proof stays reviewable when its source, verifier, and claim linkage remain visible.",
+      claim: "Claim supported",
+      source: "Source",
+      submittedBy: "Submitted by",
+      verifiedBy: "Verified by",
+      lastChecked: "Last checked",
+      openSource: "Open source",
+      weights: "Weight",
     },
-    reasonsToLean: "Reasons to lean in",
-    reasonsToSlow: "Reasons to slow down",
-    supportMode: "Support mode",
-    commitmentSize: "Commitment size",
-    riskTolerance: "Risk tolerance",
-    supportModes: {
-      money: "Capital",
-      time: "Mentor time",
-      participation: "Research seats",
-    },
-    toggles: {
-      staged: "Release support in milestone-based tranches",
-      replication: "Require third-party replication before larger commitment",
-      escrow: "Place funds in milestone escrow with fallback refund logic",
-    },
-    supportBlueprint: "Support blueprint",
-    actions: {
-      requestEvidence: "Request more evidence",
-      flagRisk: "Flag risk",
-      approveTranche: "Approve tranche",
-      moveToWatchlist: "Move to watchlist",
-      removeFromWatchlist: "Remove from watchlist",
-      helper:
-        "The workspace is strongest when the reviewer can act immediately instead of switching into email or spreadsheets.",
-    },
-    approvalGate: {
-      ready: "Ready for next tranche",
-      readyCopy:
-        "The current review policy is satisfied, so the next tranche can be released without breaking controls.",
-      blocked: "Tranche approval is blocked",
-      blockedCopy: "Clear the following blockers before releasing more support:",
-    },
-    approvalBlockers: {
-      stage: "The project has not reached a tranche decision stage yet.",
-      watchlist: "The project is still on the watchlist.",
-      evidence: "There are unresolved evidence requests in the workspace.",
-      risk: "Risk flags are above the current approval threshold.",
-    },
-    requestStatuses: {
-      needsRequest: "needs request",
-      requested: "requested",
-      received: "received",
-    },
-    requestPanel: {
-      requestNow: "Request now",
-      markReceived: "Mark received",
-      due: "Due",
+    requestSection: {
+      title: "Open requests",
+      description:
+        "Uncertainty should be converted into owned work with a due date, not left as a vague caution flag.",
       owner: "Owner",
-      empty: "All required materials are already in motion.",
+      due: "Due",
+      markReceived: "Mark received",
+      empty: "No open evidence requests on this case.",
+      statuses: {
+        needsRequest: "needs request",
+        requested: "requested",
+        received: "received",
+      },
     },
-    notes: {
-      placeholder: "Write the rationale behind the next decision gate...",
-      save: "Save note",
-      empty: "No reviewer notes yet.",
+    actionComposer: {
+      title: "Action composer",
+      description:
+        "Operational actions should include a reason, an owner, and a next checkpoint before they hit the case log.",
+      action: "Action",
+      request: "Request item",
+      owner: "Owner",
+      due: "Next checkpoint",
+      reason: "Decision rationale",
+      placeholder:
+        "Write the rationale that should appear in the case log and decision packet...",
+      submit: "Apply action",
+      actions: {
+        requestEvidence: "Request evidence",
+        flagRisk: "Escalate risk",
+        approveTranche: "Approve next tranche",
+        moveToWatchlist: "Move to watchlist",
+        removeFromWatchlist: "Remove from watchlist",
+      },
+      helper:
+        "This composer replaces one-click state changes with review actions that carry context.",
+      blocked: "This action is currently blocked by policy or stage.",
     },
-    audit: {
-      empty: "No audit activity yet.",
+    activitySection: {
+      eyebrow: "Activity",
+      title: "Unified case activity",
+      description:
+        "Internal notes, system actions, and project updates should live on one timeline so future reviewers can reconstruct the full decision path.",
+      addNote: "Add review note",
+      notePlaceholder:
+        "Capture what changed, what still worries you, or what the next reviewer should keep in mind.",
+      saveNote: "Save note",
+      empty: "No activity yet for the selected filter.",
     },
-    whyMatters: "Why this matters for OPENSCI",
-    whyMattersCopy:
-      "This prototype deliberately zooms into the decision layer between OPENSCI's funding, attribution, and collaboration surfaces: milestone funding, inspectable proof, reviewer action logs, and post-decision trust updates.",
-    suggestedCommitmentPrefix: "Suggested commitment:",
-    badgeLabels: {
+    activityPills: {
+      internal: "Internal",
+      system: "System",
+      external: "Project",
+    },
+    decisionPacket: {
+      eyebrow: "Decision packet",
+      title: "Package the committee-facing decision",
+      description:
+        "A publishable review product should end in a concrete packet, not in a freeform score playground.",
+      template: "Policy template",
+      committeeStatus: "Committee status",
+      recommendedAmount: "Recommended amount",
+      nextGate: "Next decision gate",
+      owner: "Packet owner",
+      releasePlan: "Funding plan",
+      controls: "Policy controls",
+      blockers: "Remaining blockers",
+      noBlockers: "No blocking items remain under the current policy.",
+      copy: "Copy packet memo",
+      copied: "Copied",
+      queue: "Queue for committee",
+      queued: "Queued for committee",
+      notReady: "Not ready for committee",
+      noReleaseTitle: "No capital release",
+      noReleaseValue: "Hold",
+      releaseLabel: "Release",
+      status: {
+        draft: "Draft",
+        blocked: "Blocked",
+        queued: "Queued",
+      },
+      templates: {
+        milestoneGrant: {
+          summary:
+            "Structure a milestone-based exploration grant with staged release and visible verification checkpoints.",
+          controls: [
+            "No unrestricted release outside milestone proofs.",
+            "Independent benchmark must stay attached before later tranches.",
+            "Utility evidence is reviewed again before the final release.",
+          ],
+        },
+        replicationGate: {
+          summary:
+            "Release only a constrained support package after replication and governance blockers narrow further.",
+          controls: [
+            "Safety or governance blockers must clear before the second tranche.",
+            "Missing evidence requests stay open on the packet until closed.",
+            "Committee keeps the right to pause the package after checkpoint review.",
+          ],
+        },
+        watchlistOnly: {
+          summary:
+            "Do not release capital yet. Keep the case visible, request missing proof, and re-open only when the evidence base changes.",
+          controls: [
+            "No capital leaves the program while the case is watchlisted.",
+            "Raw proof and external validation stay mandatory for re-entry.",
+            "The next review gate focuses on evidence, not campaign momentum.",
+          ],
+        },
+        declineHold: {
+          summary:
+            "Archive the current packet until the submission changes materially. The current decision posture does not justify active packaging.",
+          controls: [
+            "No committee slot is used while the case stays archived.",
+            "A fresh submission is required before review restarts.",
+            "Only material evidence changes reopen diligence.",
+          ],
+        },
+      },
+    },
+    committee: {
+      ready: "Ready to queue",
+      blocked: "Blocked by current policy",
+    },
+    blockers: {
+      stage: "The case has not reached a decision-design stage yet.",
+      watchlist: "The case is still on the watchlist.",
+      evidence: "There are unresolved evidence requests.",
+      risk: "Risk flags are still above the committee threshold.",
+      queued: "This packet is already queued for committee review.",
+    },
+    badges: {
       verified: "verified",
       partial: "partial",
       watch: "watch",
@@ -348,61 +324,56 @@ export const uiCopy = {
       "not defined": "not defined",
     },
     severityLabels: {
-      low: "low",
-      medium: "medium",
-      high: "high",
+      low: "Low severity",
+      medium: "Medium severity",
+      high: "High severity",
     },
-    severitySuffix: "severity",
   },
   zh: {
-    consoleLabel: "OPENSCI 项目支持决策台",
-    metaDescription: "一个面向高不确定性科研项目的里程碑支持评审工作台。",
+    consoleLabel: "OPENSCI 评审工作台",
+    metaDescription: "一个面向科研项目评审、证据溯源与里程碑支持决策打包的工作台。",
     language: {
       zh: "中",
       en: "EN",
     },
     languageSwitchLabel: "切换语言",
-    heroKickers: ["里程碑评审", "缺失证据补齐", "防夸大 / 防造假"],
-    heroTitle: "在“信任变成投入”之前，先审清科研项目。",
-    heroLede:
-      "这是一个面向里程碑支持的科研评审工作台：检查证据、补齐缺口、锁定 tranche 释放条件，并持续观察项目是否继续配得上支持。",
-    heroChips: ["里程碑资助", "补证请求", "归因信号", "审计轨迹"],
-    currentFocus: "当前关注",
-    reviewProtocol: "评审流程",
-    currentAsk: "当前支持请求",
-    milestoneConfidence: "里程碑把握度",
-    primaryAlert: "主要警报",
-    protocol: [
-      {
-        title: "先读清论点",
-        description: "在看热度和支持势能前，先明确项目到底希望用户相信什么。",
-      },
-      {
-        title: "再压测证据",
-        description: "把可检查证据的权重放在叙事、热度和精美包装之前。",
-      },
-      {
-        title: "最后设计支持",
-        description: "把“相信”转成分阶段支持方案，而不是一次性全押。",
-      },
-    ],
-    overview: {
-      decisionPosture: "当前决策姿态",
-      currentPhase: "当前阶段",
-      largestFailureSurface: "最大失效面",
-      recommendedCommitment: "建议支持额度",
-      currentPhaseHelp: "支持强度应该匹配证据成熟度，而不是故事 ambition。",
-      recommendedStaged: "建议按里程碑分阶段释放。",
-      recommendedDirect: "当前是直接投入，风险敞口更高。",
+    topbarTitle: "科研项目评审工作台",
+    topbarLede:
+      "处理待评审项目、追踪证据来源链、生成里程碑支持方案，并让整条决策轨迹保持可见。",
+    workspaceStatus: {
+      queue: "Inbox",
+      summary: "案件摘要",
+      review: "证据与评审",
+      packet: "决策包",
     },
-    queue: {
-      eyebrow: "项目队列",
-      title: "待支持候选",
-      description: "每个项目都带着当前评审状态、未完成补证和决策压力进入工作台。",
+    inbox: {
+      eyebrow: "Inbox",
+      title: "活跃评审队列",
+      description: "按阶段、证据压力和下个决策节点处理项目，而不是浏览静态展示卡片。",
+      search: "搜索项目或领域",
+      stageFilter: "阶段",
+      ownerFilter: "负责人",
+      sort: "排序",
+      allStages: "全部阶段",
+      allOwners: "全部负责人",
+      sortOptions: {
+        nextDecision: "按下个决策节点",
+        highestRisk: "按风险从高到低",
+        highestEvidenceGap: "按证据缺口从大到小",
+      },
+      empty: "当前筛选条件下没有匹配项目。",
+      nextDecision: "下个节点",
+      owner: "负责人",
+      openRequests: "未完成补证",
       trust: "信任",
       evidence: "证据",
       risk: "风险",
-      selectedProject: "已选项目",
+      lastTouched: "最近处理",
+      priority: {
+        high: "高优先级",
+        medium: "中优先级",
+        low: "低优先级",
+      },
     },
     workflowStages: {
       submitted: {
@@ -411,177 +382,183 @@ export const uiCopy = {
       },
       evidence: {
         label: "证据审查",
-        caption: "补证与核验进行中",
+        caption: "缺失材料正在补齐",
       },
       governance: {
         label: "治理复核",
-        caption: "风险与约束条件被重新审视",
+        caption: "风险与政策控制正在复查",
       },
       decision: {
-        label: "分段决策",
-        caption: "支持结构正在锁定",
+        label: "决策设计",
+        caption: "支持方案正在锁定",
       },
       monitoring: {
         label: "持续监控",
-        caption: "批准后继续观察信号",
+        caption: "释放后继续观察信号",
       },
     },
-    reviewMeta: {
+    caseSummary: {
+      eyebrow: "案件摘要",
+      title: "提交快照",
+      description:
+        "案件头部应该直接告诉评审者：谁提交了项目、申请了什么资源、以及它为什么会进入这轮评审。",
+      thesis: "正在判断的核心论点",
+      intakeReason: "进入本轮评审的原因",
+      requestedSupport: "申请支持",
+      requestedUse: "资金用途",
+      submittedBy: "提交方",
+      submittedAt: "提交时间",
+      reviewWindow: "评审窗口",
+      quickMetrics: "决策快照",
+      topRisks: "重点风险",
+      links: "参考链接",
+      lastTouched: "最近处理",
       owner: "评审负责人",
-      nextDecision: "下个决策节点",
-      openRequests: "未完成补证",
-      trancheStatus: "已批准 tranche",
-      watchlist: "观察名单",
-      riskFlags: "风险标记",
-      noteCount: "评审备注",
-      complete: "已完成",
-      active: "进行中",
-      pending: "待开始",
     },
-    detail: {
-      thesisPrompt: "这个项目希望用户相信什么",
-      supportShape: "支持结构",
-      decisionReadout: "决策读数",
-      milestoneAverage: "里程碑均值",
-      anomalyLoad: "异常负荷",
+    quickMetrics: {
+      verdict: "当前姿态",
+      evidence: "证据覆盖",
+      trust: "信任分",
+      risk: "异常风险",
     },
-    signalTiles: {
-      trust: {
-        label: "信任分",
-        note: "反映项目操盘方是否通过过往交付累积了真实可信度。",
-      },
-      evidence: {
-        label: "证据覆盖",
-        note: "反映核心论点有多少是真正由可检查证据支撑，而不是靠叙事。",
-      },
-      community: {
-        label: "社区信心",
-        note: "反映外部观察者是否通过真实参与来强化这个项目的可信性。",
-      },
-      anomaly: {
-        label: "异常风险",
-        note: "用于提示当前认知是否正被夸大、包装或未验证信息牵引。",
-      },
+    reviewSection: {
+      eyebrow: "证据与评审",
+      title: "证据来源链与评审动作",
+      description:
+        "每条证据都需要有来源、验证人和最后检查时间。每个动作都应该记录原因、责任人和下一个检查点。",
     },
-    sections: {
-      decisionThesis: {
-        eyebrow: "决策论点",
-        title: "哪些信息推动评审向前，哪些信息让评审踩刹车？",
-        description: "好的评审产品应该保留张力，而不是假装答案天然明确。",
-      },
-      evidenceMatrix: {
-        eyebrow: "证据矩阵",
-        title: "证据应该被整理和加权，而不是直接堆成一长页。",
-        description: "每条证据都按可验证性、外部确认和对核心论点的贡献来赋权。",
-      },
-      milestoneLedger: {
-        eyebrow: "里程碑台账",
-        title: "只有当检查点仍然成立时，支持才继续释放。",
-        description: "这是产品里最关键的机制，因为即使初始判断不完美，它也能缩小下行风险。",
-      },
-      anomalyRadar: {
-        eyebrow: "异常雷达",
-        title: "如果项目存在造假或夸大，最先会从哪里暴露出来？",
-        description: "界面需要显式暴露脆弱点，让用户知道推荐结论会在哪里失效。",
-      },
-      reviewFlow: {
-        eyebrow: "评审流程",
-        title: "工作台需要知道项目现在处于决策流程的哪一步。",
-        description: "真实的评审产品必须有阶段归属、下个关口和堵点暴露，而不只是一个分数。",
-      },
-      actionDock: {
-        eyebrow: "动作面板",
-        title: "评审员应该能在同一屏里直接推动项目向前。",
-        description: "每个动作都会更新评审状态、改变操作姿态，并写入审计轨迹。",
-      },
-      requestPanel: {
-        eyebrow: "补证面板",
-        title: "缺失证据应该被当成待办工作管理，而不是含糊地留在“不确定性”里。",
-        description: "未完成材料会带着负责人、截止时间和请求状态持续可见，方便判断下一关卡的真实阻塞点。",
-      },
-      reviewerNotes: {
-        eyebrow: "评审备注",
-        title: "把当前判断为什么变化记录下来。",
-        description: "当判断被记录并可回看时，决策质量会明显高于只存在于个人记忆里的评审过程。",
-      },
-      auditLog: {
-        eyebrow: "审计轨迹",
-        title: "每个评审动作都应该留下可追溯的操作痕迹。",
-        description: "这能让后续评审员、治理负责人和支持运营同样看清整个过程。",
-      },
-      feedback: {
-        eyebrow: "持续反馈",
-        title: "委员会动作发生后，项目信号仍然需要被持续观察。",
-        description: "对于长周期科研结果，产品必须持续更新信任，而不是只给一次性评分。",
-      },
-      decisionStudio: {
-        eyebrow: "决策工作台",
-        title: "把“相信”变成具体的支持策略",
-        description: "产品要帮助用户决定如何安全地支持项目，而不只是决定喜不喜欢它。",
-      },
+    evidenceSection: {
+      title: "证据来源链",
+      description: "当来源、验证人和所支撑的论点都保持可见时，证据才真正可复查。",
+      claim: "支撑的论点",
+      source: "来源",
+      submittedBy: "提交人",
+      verifiedBy: "验证人",
+      lastChecked: "最后检查",
+      openSource: "打开来源",
+      weights: "权重",
     },
-    reasonsToLean: "支持它的理由",
-    reasonsToSlow: "让你放慢的理由",
-    supportMode: "支持方式",
-    commitmentSize: "投入规模",
-    riskTolerance: "风险偏好",
-    supportModes: {
-      money: "资金",
-      time: "导师时间",
-      participation: "参与席位",
-    },
-    toggles: {
-      staged: "按里程碑分阶段释放支持资源",
-      replication: "在更大额度支持前要求第三方复现",
-      escrow: "将资金放入里程碑托管并保留回退逻辑",
-    },
-    supportBlueprint: "支持蓝图",
-    actions: {
-      requestEvidence: "请求更多证据",
-      flagRisk: "标记风险",
-      approveTranche: "批准 tranche",
-      moveToWatchlist: "移入观察名单",
-      removeFromWatchlist: "移出观察名单",
-      helper:
-        "当评审员可以在同一屏里直接行动，而不是切去邮件和表格时，工作台的价值才真正成立。",
-    },
-    approvalGate: {
-      ready: "满足下一笔 tranche 的批准条件",
-      readyCopy: "当前评审门槛已满足，下一笔 tranche 可以在不破坏控制条件的前提下释放。",
-      blocked: "当前不可批准 tranche",
-      blockedCopy: "在释放更多支持前，需要先解除以下阻塞项：",
-    },
-    approvalBlockers: {
-      stage: "项目还没有进入 tranche 决策阶段。",
-      watchlist: "项目仍然停留在观察名单中。",
-      evidence: "工作台里仍有未关闭的补证请求。",
-      risk: "当前风险标记已经超过批准阈值。",
-    },
-    requestStatuses: {
-      needsRequest: "待发起",
-      requested: "已请求",
-      received: "已收到",
-    },
-    requestPanel: {
-      requestNow: "立即请求",
-      markReceived: "标记为已收到",
-      due: "截止",
+    requestSection: {
+      title: "未完成补证",
+      description: "不确定性应该被转成有负责人和截止时间的工作项，而不是模糊的风险提示。",
       owner: "责任人",
-      empty: "当前所需材料都已经在推进中了。",
+      due: "截止时间",
+      markReceived: "标记为已收到",
+      empty: "当前案件没有未完成补证。",
+      statuses: {
+        needsRequest: "待发起",
+        requested: "已请求",
+        received: "已收到",
+      },
     },
-    notes: {
-      placeholder: "写下下一个决策节点背后的判断依据……",
-      save: "保存备注",
-      empty: "还没有评审备注。",
+    actionComposer: {
+      title: "动作编辑器",
+      description: "高风险操作不应该一键生效，而应该先补齐原因、责任人和下一个检查点。",
+      action: "动作类型",
+      request: "补证项",
+      owner: "责任人",
+      due: "下个检查点",
+      reason: "处理依据",
+      placeholder: "写下应该进入案件日志和决策包的判断依据……",
+      submit: "执行动作",
+      actions: {
+        requestEvidence: "发起补证请求",
+        flagRisk: "升级风险",
+        approveTranche: "批准下一笔 tranche",
+        moveToWatchlist: "移入观察名单",
+        removeFromWatchlist: "移出观察名单",
+      },
+      helper: "这个编辑器用带上下文的评审动作替代了一键式状态切换。",
+      blocked: "当前阶段或政策条件不允许执行这个动作。",
     },
-    audit: {
-      empty: "暂时没有审计记录。",
+    activitySection: {
+      eyebrow: "活动流",
+      title: "统一案件时间线",
+      description:
+        "内部备注、系统动作和项目更新应该在同一条时间线上，方便后续评审者完整还原决策路径。",
+      addNote: "添加评审备注",
+      notePlaceholder: "记录这次判断变化、剩余疑点，或留给下一位评审者的提醒。",
+      saveNote: "保存备注",
+      empty: "当前筛选下还没有活动记录。",
     },
-    whyMatters: "为什么这对 OPENSCI 重要",
-    whyMattersCopy:
-      "这个原型刻意聚焦在 OPENSCI 的“决策层”上：把资助、归因、协作之间最容易失真的一段流程做实，包括里程碑释放、可检查证据、评审动作记录和支持后的信任更新。",
-    suggestedCommitmentPrefix: "建议支持：",
-    badgeLabels: {
+    activityPills: {
+      internal: "内部",
+      system: "系统",
+      external: "项目",
+    },
+    decisionPacket: {
+      eyebrow: "决策包",
+      title: "输出可提交委员会的支持方案",
+      description: "一个接近发布的评审产品，终点应该是决策包，而不是自由调参面板。",
+      template: "政策模板",
+      committeeStatus: "委员会状态",
+      recommendedAmount: "建议额度",
+      nextGate: "下个决策节点",
+      owner: "决策包负责人",
+      releasePlan: "资金计划",
+      controls: "政策控制项",
+      blockers: "剩余阻塞项",
+      noBlockers: "在当前政策下，暂时没有阻塞项。",
+      copy: "复制决策备忘录",
+      copied: "已复制",
+      queue: "加入委员会队列",
+      queued: "已加入委员会队列",
+      notReady: "当前不可提交委员会",
+      noReleaseTitle: "不释放资金",
+      noReleaseValue: "保持观察",
+      releaseLabel: "释放",
+      status: {
+        draft: "草稿",
+        blocked: "阻塞中",
+        queued: "已排队",
+      },
+      templates: {
+        milestoneGrant: {
+          summary: "按里程碑设计探索型资助，分阶段释放，并保留显式验证检查点。",
+          controls: [
+            "没有里程碑证明时，不得做无条件释放。",
+            "后续 tranche 前必须继续保留独立基准验证。",
+            "最终释放前需要再次复核实际效用证据。",
+          ],
+        },
+        replicationGate: {
+          summary: "只在复现与治理阻塞进一步收窄后，才释放受约束的支持方案。",
+          controls: [
+            "第二笔 tranche 前必须清除安全或治理阻塞项。",
+            "未关闭的补证请求必须继续留在决策包中。",
+            "委员会在检查点后保留暂停支持的权利。",
+          ],
+        },
+        watchlistOnly: {
+          summary: "当前不释放资金。继续保留案件可见性、补齐缺失证据，并在证据基础变化后重开评审。",
+          controls: [
+            "案件处于观察名单期间，不得释放资金。",
+            "原始证据和外部验证仍是重新进入主动评审的前提。",
+            "下一次复核聚焦证据，而不是传播势能。",
+          ],
+        },
+        declineHold: {
+          summary: "将当前案件暂缓归档，直到提交内容发生实质变化。当前姿态不足以继续进入打包流程。",
+          controls: [
+            "案件归档期间，不占用委员会评审槽位。",
+            "重新启动评审前，需要新的提交版本。",
+            "只有实质性证据变化才会触发重新尽调。",
+          ],
+        },
+      },
+    },
+    committee: {
+      ready: "可加入委员会队列",
+      blocked: "当前政策阻塞",
+    },
+    blockers: {
+      stage: "案件尚未进入可设计决策包的阶段。",
+      watchlist: "案件仍停留在观察名单中。",
+      evidence: "当前仍有未关闭的补证请求。",
+      risk: "风险标记仍高于委员会阈值。",
+      queued: "这个决策包已经在委员会队列中了。",
+    },
+    badges: {
       verified: "已验证",
       partial: "部分验证",
       watch: "观察中",
@@ -596,11 +573,10 @@ export const uiCopy = {
       "not defined": "尚未定义",
     },
     severityLabels: {
-      low: "低",
-      medium: "中",
-      high: "高",
+      low: "低级风险",
+      medium: "中级风险",
+      high: "高级风险",
     },
-    severitySuffix: "级别",
   },
 };
 
