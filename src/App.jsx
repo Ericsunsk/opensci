@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { principles, projects, reviewSeeds } from "./data";
 import { postureCopy, readText, reasonLabels, uiCopy, verdictLabels } from "./i18n";
 
@@ -20,6 +20,27 @@ const requestToneMap = {
   needsRequest: "danger",
   requested: "warning",
   received: "success",
+};
+
+const commitmentBounds = {
+  money: {
+    min: 10000,
+    max: 120000,
+    baseExposure: 20,
+    weight: 1,
+  },
+  time: {
+    min: 1,
+    max: 120,
+    baseExposure: 8,
+    weight: 0.55,
+  },
+  participation: {
+    min: 1,
+    max: 6,
+    baseExposure: 12,
+    weight: 0.75,
+  },
 };
 
 const CURRENT_REVIEW_DATE = "2026-03-30";
@@ -96,7 +117,21 @@ function countOpenRequests(review) {
   return review.evidenceRequests.filter((item) => item.status !== "received").length;
 }
 
+function getCommitmentProfile(mode, value) {
+  const config = commitmentBounds[mode] ?? commitmentBounds.money;
+  const numericValue = Number.isFinite(value) ? value : config.min;
+  const ratio =
+    config.max === config.min ? 0 : (numericValue - config.min) / (config.max - config.min);
+  const normalized = Math.max(0, Math.min(1, ratio));
+
+  return {
+    normalized,
+    pressure: Math.round(config.baseExposure + normalized * 80 * config.weight),
+  };
+}
+
 function computeRecommendation(project, settings, review) {
+  const commitment = getCommitmentProfile(settings.supportMode, settings.supportValue);
   const anomalyPenalty = project.anomalyRisk * 0.55;
   const momentumBonus = project.momentum * 0.15;
   const stagedBonus = settings.staged ? 10 : -5;
@@ -106,6 +141,14 @@ function computeRecommendation(project, settings, review) {
   const reviewPenalty = review ? review.riskFlags * 3.5 + (review.watchlisted ? 8 : 0) : 0;
   const requestPenalty = review ? countOpenRequests(review) * 2 : 0;
   const trancheBonus = review ? review.approvedTranches * 3 : 0;
+  const commitmentBudget =
+    project.evidenceCoverage * 0.52 +
+    project.trustScore * 0.28 +
+    (settings.replication ? 8 : 0) +
+    (settings.escrow ? 6 : 0) +
+    (settings.supportMode === "time" ? 6 : settings.supportMode === "participation" ? 2 : 0);
+  const commitmentPenalty = Math.max(0, commitment.pressure - commitmentBudget) * 0.35;
+  const exposurePenalty = commitment.pressure * (settings.staged ? 0.07 : 0.18);
 
   const rawScore =
     project.trustScore * 0.4 +
@@ -118,7 +161,9 @@ function computeRecommendation(project, settings, review) {
     anomalyPenalty -
     reviewPenalty -
     requestPenalty +
-    userRiskAdjustment;
+    userRiskAdjustment -
+    commitmentPenalty -
+    exposurePenalty;
 
   const boundedScore = Math.max(0, Math.min(100, Math.round(rawScore)));
 
@@ -137,13 +182,23 @@ function computeRecommendation(project, settings, review) {
   }
 
   const reasonKeys = [
-    project.trustScore >= 70 ? "trustStrong" : "trustWeak",
+    commitment.pressure <= commitmentBudget * 0.82
+      ? "commitmentRightSized"
+      : "commitmentOversized",
     project.evidenceCoverage >= 60 ? "evidenceStrong" : "evidenceWeak",
     settings.staged ? "stagedOn" : "stagedOff",
     settings.replication ? "replicationOn" : "replicationOff",
+    settings.escrow ? "escrowOn" : "escrowOff",
   ];
 
-  return { boundedScore, verdictKey, tone, reasonKeys };
+  return {
+    boundedScore,
+    verdictKey,
+    tone,
+    reasonKeys,
+    commitmentPressure: commitment.pressure,
+    commitmentBudget: Math.round(commitmentBudget),
+  };
 }
 
 function SectionTitle({ eyebrow, title, description }) {
@@ -202,6 +257,18 @@ function App() {
   const ui = uiCopy[lang];
   const t = (value) => readText(value, lang);
 
+  useEffect(() => {
+    document.documentElement.lang = lang === "zh" ? "zh-CN" : "en";
+    document.title = ui.consoleLabel;
+
+    const description =
+      document.querySelector('meta[name="description"]') ??
+      document.head.appendChild(document.createElement("meta"));
+
+    description.setAttribute("name", "description");
+    description.setAttribute("content", ui.metaDescription);
+  }, [lang, ui.consoleLabel, ui.metaDescription]);
+
   const selectedProject = useMemo(
     () => projects.find((project) => project.id === selectedId) ?? projects[0],
     [selectedId],
@@ -213,6 +280,8 @@ function App() {
       computeRecommendation(
         selectedProject,
         {
+          supportMode,
+          supportValue,
           riskTolerance,
           staged,
           replication,
@@ -241,6 +310,31 @@ function App() {
   const requestableCount = selectedReview.evidenceRequests.filter(
     (item) => item.status === "needsRequest",
   ).length;
+  const approvalBlockers = [];
+  const stageAllowsApproval =
+    selectedReview.currentStage === "decision" || selectedReview.currentStage === "monitoring";
+  const canApproveTranche =
+    selectedReview.approvedTranches < selectedProject.milestones.length &&
+    stageAllowsApproval &&
+    !selectedReview.watchlisted &&
+    openRequests === 0 &&
+    selectedReview.riskFlags < 4;
+
+  if (!stageAllowsApproval) {
+    approvalBlockers.push("stage");
+  }
+
+  if (selectedReview.watchlisted) {
+    approvalBlockers.push("watchlist");
+  }
+
+  if (openRequests > 0) {
+    approvalBlockers.push("evidence");
+  }
+
+  if (selectedReview.riskFlags >= 4) {
+    approvalBlockers.push("risk");
+  }
 
   const updateProjectReview = (projectId, updater) => {
     setReviewState((current) => {
@@ -292,6 +386,51 @@ function App() {
     });
   };
 
+  const markEvidenceReceived = (requestIndex) => {
+    updateProjectReview(selectedId, (review) => {
+      const target = review.evidenceRequests[requestIndex];
+
+      if (!target || target.status !== "requested") {
+        return review;
+      }
+
+      const evidenceRequests = review.evidenceRequests.map((item, index) =>
+        index === requestIndex ? { ...item, status: "received" } : item,
+      );
+      const allEvidenceResolved = evidenceRequests.every((item) => item.status === "received");
+      const nextStage = allEvidenceResolved
+        ? review.watchlisted
+          ? "governance"
+          : "decision"
+        : review.currentStage;
+      const nextDecision = allEvidenceResolved
+        ? selectedProject.milestones[review.approvedTranches]?.due ?? review.nextDecision
+        : review.nextDecision;
+
+      return prependAudit(
+        {
+          ...review,
+          currentStage: nextStage,
+          nextDecision,
+          evidenceRequests,
+        },
+        {
+          date: CURRENT_REVIEW_DATE,
+          tone: "success",
+          title: bi("Evidence received", "补证材料已收到"),
+          detail: bi(
+            allEvidenceResolved
+              ? `Received ${target.label.en}; the project can move back into tranche design.`
+              : `Received ${target.label.en}; remaining blockers stay in review.`,
+            allEvidenceResolved
+              ? `已收到「${target.label.zh}」，项目可以重新回到 tranche 设计。`
+              : `已收到「${target.label.zh}」，其余阻塞项仍在继续审查。`,
+          ),
+        },
+      );
+    });
+  };
+
   const handleRequestEvidence = () => {
     const firstRequestable = selectedReview.evidenceRequests.findIndex(
       (item) => item.status === "needsRequest",
@@ -325,18 +464,30 @@ function App() {
 
   const handleApproveTranche = () => {
     updateProjectReview(selectedId, (review) => {
-      if (review.approvedTranches >= selectedProject.milestones.length) {
+      const hasOpenRequests = countOpenRequests(review) > 0;
+      const stageAllowsRelease =
+        review.currentStage === "decision" || review.currentStage === "monitoring";
+
+      if (
+        review.approvedTranches >= selectedProject.milestones.length ||
+        !stageAllowsRelease ||
+        review.watchlisted ||
+        hasOpenRequests ||
+        review.riskFlags >= 4
+      ) {
         return review;
       }
 
       const nextApproved = review.approvedTranches + 1;
       const trancheMilestone = selectedProject.milestones[nextApproved - 1];
+      const nextDecision = selectedProject.milestones[nextApproved]?.due ?? review.nextDecision;
 
       return prependAudit(
         {
           ...review,
           approvedTranches: nextApproved,
           currentStage: "monitoring",
+          nextDecision,
           watchlisted: false,
         },
         {
@@ -355,10 +506,19 @@ function App() {
   const handleToggleWatchlist = () => {
     updateProjectReview(selectedId, (review) => {
       const nextWatchlist = !review.watchlisted;
+      const allEvidenceResolved = review.evidenceRequests.every(
+        (item) => item.status === "received",
+      );
+      const nextStage = nextWatchlist
+        ? "governance"
+        : allEvidenceResolved
+          ? "decision"
+          : review.currentStage;
 
       return prependAudit(
         {
           ...review,
+          currentStage: nextStage,
           watchlisted: nextWatchlist,
         },
         {
@@ -431,6 +591,8 @@ function App() {
               <button
                 type="button"
                 className={lang === "zh" ? "is-active" : ""}
+                aria-pressed={lang === "zh"}
+                aria-label={ui.languageSwitchLabel}
                 onClick={() => setLang("zh")}
               >
                 {ui.language.zh}
@@ -438,6 +600,8 @@ function App() {
               <button
                 type="button"
                 className={lang === "en" ? "is-active" : ""}
+                aria-pressed={lang === "en"}
+                aria-label={ui.languageSwitchLabel}
                 onClick={() => setLang("en")}
               >
                 {ui.language.en}
@@ -552,6 +716,8 @@ function App() {
               const localRecommendation = computeRecommendation(
                 project,
                 {
+                  supportMode,
+                  supportValue,
                   riskTolerance,
                   staged,
                   replication,
@@ -747,7 +913,7 @@ function App() {
                   type="button"
                   className="action-button action-button--success"
                   onClick={handleApproveTranche}
-                  disabled={selectedReview.approvedTranches >= selectedProject.milestones.length}
+                  disabled={!canApproveTranche}
                 >
                   {ui.actions.approveTranche}
                 </button>
@@ -779,6 +945,28 @@ function App() {
                   <span>{ui.reviewMeta.openRequests}</span>
                   <strong>{`${openRequests}/${selectedReview.evidenceRequests.length}`}</strong>
                 </div>
+              </div>
+
+              <div
+                className={`approval-guard ${
+                  canApproveTranche ? "approval-guard--ready" : "approval-guard--blocked"
+                }`}
+              >
+                <strong>
+                  {canApproveTranche ? ui.approvalGate.ready : ui.approvalGate.blocked}
+                </strong>
+                <p>
+                  {canApproveTranche
+                    ? ui.approvalGate.readyCopy
+                    : ui.approvalGate.blockedCopy}
+                </p>
+                {!canApproveTranche && approvalBlockers.length > 0 ? (
+                  <ul>
+                    {approvalBlockers.map((blocker) => (
+                      <li key={blocker}>{ui.approvalBlockers[blocker]}</li>
+                    ))}
+                  </ul>
+                ) : null}
               </div>
 
               <p className="action-helper">{ui.actions.helper}</p>
@@ -843,6 +1031,15 @@ function App() {
                         onClick={() => queueEvidenceRequest(index)}
                       >
                         {ui.requestPanel.requestNow}
+                      </button>
+                    ) : null}
+                    {request.status === "requested" ? (
+                      <button
+                        type="button"
+                        className="inline-action inline-action--secondary"
+                        onClick={() => markEvidenceReceived(index)}
+                      >
+                        {ui.requestPanel.markReceived}
                       </button>
                     ) : null}
                   </div>

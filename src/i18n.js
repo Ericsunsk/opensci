@@ -54,6 +54,10 @@ export const postureCopy = {
 
 export const reasonLabels = {
   en: {
+    commitmentRightSized:
+      "The current commitment size stays inside the proof budget the project has actually earned.",
+    commitmentOversized:
+      "The proposed commitment is larger than the current proof budget can safely carry.",
     trustStrong: "The team's delivery history lowers execution risk.",
     trustWeak: "Trust is still concentrated in claims rather than delivered proof.",
     evidenceStrong: "Evidence coverage is broad enough to justify milestone-based support.",
@@ -62,8 +66,12 @@ export const reasonLabels = {
     stagedOff: "Without staged release, the user absorbs too much uncertainty early.",
     replicationOn: "Independent replication is required before higher commitment.",
     replicationOff: "Skipping replication raises the chance of backing inflated results.",
+    escrowOn: "Escrow keeps later releases tied to milestone proof instead of blind trust.",
+    escrowOff: "Without escrow, the reviewer loses too much control after release.",
   },
   zh: {
+    commitmentRightSized: "当前投入规模仍在项目已证明能力可以承接的范围内。",
+    commitmentOversized: "当前拟投入规模已经超过现有证据预算所能安全承接的范围。",
     trustStrong: "团队过往的交付记录有效降低了执行风险。",
     trustWeak: "当前信任仍主要建立在陈述上，而不是已完成的交付上。",
     evidenceStrong: "证据覆盖已经足够广，能够支撑基于里程碑的支持方式。",
@@ -72,16 +80,21 @@ export const reasonLabels = {
     stagedOff: "如果不做分阶段释放，用户会在早期承担过多不确定性。",
     replicationOn: "在更大额度支持前，引入第三方复现是必要条件。",
     replicationOff: "跳过复现会显著提高支持到被夸大结果的概率。",
+    escrowOn: "托管机制能把后续释放继续绑在里程碑证明上，而不是靠盲目信任。",
+    escrowOff: "如果没有托管机制，资源释放后的控制权会下降过快。",
   },
 };
 
 export const uiCopy = {
   en: {
     consoleLabel: "OPENSCI Project Support Console",
+    metaDescription:
+      "Reviewer workspace for evaluating milestone-based support decisions on high-uncertainty research projects.",
     language: {
       zh: "中",
       en: "EN",
     },
+    languageSwitchLabel: "Switch language",
     heroKickers: ["milestone review", "missing-proof triage", "fraud-aware controls"],
     heroTitle: "Review scientific projects before trust turns into capital.",
     heroLede:
@@ -283,6 +296,19 @@ export const uiCopy = {
       helper:
         "The workspace is strongest when the reviewer can act immediately instead of switching into email or spreadsheets.",
     },
+    approvalGate: {
+      ready: "Ready for next tranche",
+      readyCopy:
+        "The current review policy is satisfied, so the next tranche can be released without breaking controls.",
+      blocked: "Tranche approval is blocked",
+      blockedCopy: "Clear the following blockers before releasing more support:",
+    },
+    approvalBlockers: {
+      stage: "The project has not reached a tranche decision stage yet.",
+      watchlist: "The project is still on the watchlist.",
+      evidence: "There are unresolved evidence requests in the workspace.",
+      risk: "Risk flags are above the current approval threshold.",
+    },
     requestStatuses: {
       needsRequest: "needs request",
       requested: "requested",
@@ -290,6 +316,7 @@ export const uiCopy = {
     },
     requestPanel: {
       requestNow: "Request now",
+      markReceived: "Mark received",
       due: "Due",
       owner: "Owner",
       empty: "All required materials are already in motion.",
@@ -329,10 +356,12 @@ export const uiCopy = {
   },
   zh: {
     consoleLabel: "OPENSCI 项目支持决策台",
+    metaDescription: "一个面向高不确定性科研项目的里程碑支持评审工作台。",
     language: {
       zh: "中",
       en: "EN",
     },
+    languageSwitchLabel: "切换语言",
     heroKickers: ["里程碑评审", "缺失证据补齐", "防夸大 / 防造假"],
     heroTitle: "在“信任变成投入”之前，先审清科研项目。",
     heroLede:
@@ -516,6 +545,18 @@ export const uiCopy = {
       helper:
         "当评审员可以在同一屏里直接行动，而不是切去邮件和表格时，工作台的价值才真正成立。",
     },
+    approvalGate: {
+      ready: "满足下一笔 tranche 的批准条件",
+      readyCopy: "当前评审门槛已满足，下一笔 tranche 可以在不破坏控制条件的前提下释放。",
+      blocked: "当前不可批准 tranche",
+      blockedCopy: "在释放更多支持前，需要先解除以下阻塞项：",
+    },
+    approvalBlockers: {
+      stage: "项目还没有进入 tranche 决策阶段。",
+      watchlist: "项目仍然停留在观察名单中。",
+      evidence: "工作台里仍有未关闭的补证请求。",
+      risk: "当前风险标记已经超过批准阈值。",
+    },
     requestStatuses: {
       needsRequest: "待发起",
       requested: "已请求",
@@ -523,6 +564,7 @@ export const uiCopy = {
     },
     requestPanel: {
       requestNow: "立即请求",
+      markReceived: "标记为已收到",
       due: "截止",
       owner: "责任人",
       empty: "当前所需材料都已经在推进中了。",
